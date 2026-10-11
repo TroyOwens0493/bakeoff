@@ -1,36 +1,10 @@
-/* eslint-disable */
-/**
- * Generated `api` utility.
- *
- * THIS CODE IS AUTOMATICALLY GENERATED.
- *
- * To regenerate, run `npx convex dev`.
- * @module
- */
-
-import type {
-  ApiFromModules,
-  FilterApi,
-  FunctionReference,
-} from 'convex/server'
-import type * as todos from '../todos.js'
-
-/**
- * A utility for referencing Convex functions in your app's API.
- *
- * Usage:
- * ```js
- * const myFunctionReference = api.myModule.myFunction;
- * ```
- */
-declare const fullApi: ApiFromModules<{
-  todos: typeof todos
-}>
-export declare const api: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, 'public'>
->
-export declare const internal: FilterApi<
-  typeof fullApi,
-  FunctionReference<any, 'internal'>
->
+/* Local API types. Regenerate with convex codegen after development login. */
+import type { ApiFromModules, FilterApi, FunctionReference } from "convex/server";
+import type * as auth from "../auth.js";
+import type * as email from "../email.js";
+import type * as todos from "../todos.js";
+import type { ComponentApi } from "@convex-dev/better-auth/_generated/component.js";
+declare const fullApi: ApiFromModules<{auth: typeof auth,email: typeof email,todos: typeof todos}>;
+export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;
+export declare const internal: FilterApi<typeof fullApi, FunctionReference<any, "internal">>;
+export declare const components: { betterAuth: ComponentApi<"betterAuth"> };

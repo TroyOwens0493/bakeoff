@@ -1,20 +1,34 @@
-import { ConvexProvider } from 'convex/react'
-import { ConvexQueryClient } from '@convex-dev/react-query'
-
-const CONVEX_URL = (import.meta as any).env.VITE_CONVEX_URL
-if (!CONVEX_URL) {
-  console.error('missing envar CONVEX_URL')
-}
-const convexQueryClient = new ConvexQueryClient(CONVEX_URL)
-
+import {
+	type AuthClient,
+	ConvexBetterAuthProvider,
+} from "@convex-dev/better-auth/react";
+import { ConvexReactClient } from "convex/react";
+import { type ReactNode, useState } from "react";
+import { authClient } from "../../lib/auth-client";
 export default function AppConvexProvider({
-  children,
+	children,
 }: {
-  children: React.ReactNode
+	children: ReactNode;
 }) {
-  return (
-    <ConvexProvider client={convexQueryClient.convexClient}>
-      {children}
-    </ConvexProvider>
-  )
+	const url = import.meta.env.VITE_CONVEX_URL;
+	const [client] = useState(() => (url ? new ConvexReactClient(url) : null));
+	if (!client)
+		return (
+			<main className="auth-card">
+				<h1>Set up Budget Together</h1>
+				<p>
+					Set VITE_CONVEX_URL and VITE_CONVEX_SITE_URL in .env.local, then start
+					the development server again.
+				</p>
+			</main>
+		);
+	// Better Auth 1.6.33 changes the inferred plugin generic; the configured Convex plugin matches this provider.
+	return (
+		<ConvexBetterAuthProvider
+			client={client}
+			authClient={authClient as unknown as AuthClient}
+		>
+			{children}
+		</ConvexBetterAuthProvider>
+	);
 }
