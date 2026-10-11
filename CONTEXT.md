@@ -21,7 +21,6 @@
 | Shared contribution | Funding from a private budget to a shared budget. The private outflow and shared inflow have the same amount. Planned amounts and matched actual transfers are separate. |
 | Transfer | Money moved between accounts. It is neither a purchase nor earned income. A shared contribution also changes funding between budgets. |
 | Split | Parts of one transaction assigned to categories. The parts must total the transaction amount. |
-| Exclusion | A transaction flag that removes the transaction from counted budget totals. The precise rules for each transaction type remain to be defined. |
 | Available leftovers | Actual monthly savings above the source month's savings target, with a minimum of zero. Existing carry-forward allocations reduce the amount still available to assign. |
 | Carry-forward | An explicit allocation from a source month's savings above its target to the next month's categories or savings target. It is a separate funding source. |
 | Reserved funds | Money allocated from a source month for a destination month. It must stay separate from retained savings. |
