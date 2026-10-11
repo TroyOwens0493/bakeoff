@@ -1,5 +1,5 @@
 {
-	"$schema": "https://biomejs.dev/schemas/2.2.4/schema.json",
+	"$schema": "https://biomejs.dev/schemas/2.4.5/schema.json",
 	"vcs": {
 		"enabled": false,
 		"clientKind": "git",
@@ -13,14 +13,22 @@
 			"**/index.html",
 			"**/vite.config.ts",
 			"!**/src/routeTree.gen.ts",
-			"!**/src/styles.css"
+			"**/convex/**/*",
+			"!**/convex/_generated",
+			"**/tests/**/*"
 		]
 	},
 	"formatter": {
 		"enabled": true,
 		"indentStyle": "tab"
 	},
-	"assist": { "actions": { "source": { "organizeImports": "on" } } },
+	"assist": {
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	},
 	"linter": {
 		"enabled": true,
 		"rules": {
@@ -33,4 +41,3 @@
 		}
 	}
 }
-
