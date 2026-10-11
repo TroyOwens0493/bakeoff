@@ -1,6 +1,6 @@
 # Terminology
-We are creating a shared terminology in the CONTEXT.md document. 
-Feel free to look there, and update the shared context if we determine a new term.
+CONTEXT.md is only for shared terms and definitions. Update it when we agree on a new term.
+See [Budget Together Spec.pdf](<Budget Together Spec.pdf>) for project requirements.
 
 # Software design
 Try to avoid using libraries and pnpm packages, create things from scratch. 
