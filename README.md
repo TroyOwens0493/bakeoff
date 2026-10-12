@@ -22,7 +22,7 @@ Set the variables described in `.env.example` on that Convex development deploym
 pnpm dev
 ```
 
-Open http://localhost:3000. Create an account and private budget. Connect a bank, add a monthly plan, and optionally create a shared budget and invite a partner.
+Open http://localhost:3000. Local authentication also accepts http://127.0.0.1:3000 on the same port. Hosted deployments accept only the configured `SITE_URL` origin. Create an account and private budget. Connect a bank, add a monthly plan, and optionally create a shared budget and invite a partner.
 
 ## Bank connectivity and email
 

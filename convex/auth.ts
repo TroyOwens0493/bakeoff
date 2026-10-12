@@ -5,10 +5,12 @@ import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import authConfig from "./auth.config";
+import { trustedAuthOrigins } from "./authOrigins";
 export const authComponent = createClient<DataModel>(components.betterAuth);
 export const createAuth = (ctx: GenericCtx<DataModel>) =>
 	betterAuth({
 		baseURL: process.env.SITE_URL,
+		trustedOrigins: trustedAuthOrigins(process.env.SITE_URL),
 		secret: process.env.BETTER_AUTH_SECRET,
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {
