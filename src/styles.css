@@ -417,11 +417,24 @@ fieldset:disabled {
 	align-items: center;
 	justify-content: flex-end;
 }
-.bar-chart span {
+.spending-bar {
+	position: relative;
 	width: 60%;
-	background: #a8be94;
+	height: 140px;
 	border-radius: 5px 5px 0 0;
 	min-width: 15px;
+	overflow: hidden;
+}
+.spending-segment,
+.spending-zero {
+	position: absolute;
+	left: 0;
+	width: 100%;
+}
+.spending-zero {
+	height: 1px;
+	background: var(--border);
+	transform: translateY(-1px);
 }
 .bar-chart small {
 	margin: 8px 0;

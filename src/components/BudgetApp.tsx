@@ -18,6 +18,7 @@ import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { cents, nextMonth } from "../domain/budget";
 import { authClient } from "../lib/auth-client";
 import { AccountsView } from "./AccountsView";
+import { SpendingChart } from "./SpendingChart";
 import { TransactionsView } from "./TransactionsView";
 import { Modal, usd } from "./ui";
 import type { Run, ViewProps } from "./view-types";
@@ -381,22 +382,11 @@ function Overview({
 							))}
 						</select>
 					</label>
-					<div
-						className="bar-chart"
-						role="img"
-						aria-label="Monthly spending. Exact values are in the table below."
-					>
-						{reports?.map((x) => (
-							<div key={x.month}>
-								<span
-									style={{
-										height: `${Math.max(2, ((chartCategory ? (x.categories[chartCategory] ?? 0) : x.spending) / Math.max(1, ...reports.map((r) => (chartCategory ? (r.categories[chartCategory] ?? 0) : r.spending)))) * 140)}px`,
-									}}
-								/>
-								<small>{x.month.slice(5)}</small>
-							</div>
-						))}
-					</div>
+					<SpendingChart
+						reports={reports ?? []}
+						categories={data.categories}
+						categoryId={chartCategory}
+					/>
 					<table className="compact-table">
 						<caption className="sr-only">
 							Monthly spending in US dollars
