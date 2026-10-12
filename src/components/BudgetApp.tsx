@@ -45,6 +45,7 @@ export function BudgetApp({ home }: { home: Home }) {
 		`${currentMonth.find((x) => x.type === "year")!.value}-${currentMonth.find((x) => x.type === "month")!.value}`,
 	);
 	const [view, setView] = useState<string>("overview");
+	const pageName = nav.find(([id]) => id === view)?.[1] ?? "Settings";
 	const [notice, setNotice] = useState("");
 	const [error, setError] = useState("");
 	const [busy, setBusy] = useState(false);
@@ -113,19 +114,13 @@ export function BudgetApp({ home }: { home: Home }) {
 					))}
 				</nav>
 				<div className="sidebar-bottom">
-					<span className="sync-caption">
-						Private and shared, on your terms.
-					</span>
 					<button
 						className="nav-item"
 						type="button"
 						onClick={() => setView("profile")}
 					>
 						<Settings size={18} />
-						<span>
-							{home.profile?.name}
-							<small>Personal settings</small>
-						</span>
+						Settings
 					</button>
 					<button
 						className="nav-item"
@@ -145,8 +140,8 @@ export function BudgetApp({ home }: { home: Home }) {
 			<main className="main-content">
 				<header className="topbar">
 					<span>
-						{space.type === "shared" ? "Our household" : "Your space"}{" "}
-						<span className="slash">/</span> <strong>{space.name}</strong>
+						{space.type === "shared" ? "Our household" : "Personal"}{" "}
+						<span className="slash">/</span> <strong>{pageName}</strong>
 					</span>
 					<div>
 						<button
@@ -251,7 +246,7 @@ function Summary({ data }: { data: Dashboard }) {
 				</small>
 			</article>
 			<article className="summary-card">
-				<span>Spent this month</span>
+				<span>Money out</span>
 				<strong>{usd(data.spending)}</strong>
 				<small>{usd(data.pending)} pending, separate from totals</small>
 			</article>
@@ -292,11 +287,7 @@ function Overview({
 	const [error, setError] = useState("");
 	return (
 		<>
-			<div className="page-heading">
-				<div>
-					<p className="eyebrow">YOUR MONTH, AT A GLANCE</p>
-					<h1>Room for what matters.</h1>
-				</div>
+			<div className="page-actions">
 				<button
 					type="button"
 					className="secondary"
@@ -435,7 +426,7 @@ function Overview({
 			</div>
 			<section className="panel activity">
 				<div className="section-heading">
-					<h2>The latest activity</h2>
+					<h2>Recent activity</h2>
 					<button
 						type="button"
 						className="text-button"
@@ -583,14 +574,6 @@ function PlanView({
 	}
 	return (
 		<>
-			<div className="page-heading">
-				<div>
-					<p className="eyebrow">
-						MONTHLY PLAN · {data.plan?.status ?? "DRAFT"}
-					</p>
-					<h1>Give every dollar a purpose.</h1>
-				</div>
-			</div>
 			{(data.plan?.revision ?? 0) > revision && (
 				<div className="banner" role="alert">
 					This plan changed. Your unsaved entries are still here.{" "}
@@ -799,12 +782,6 @@ function ReviewView({
 	}
 	return (
 		<>
-			<div className="page-heading">
-				<div>
-					<p className="eyebrow">MONTHLY REVIEW</p>
-					<h1>A clear close. A fresh start.</h1>
-				</div>
-			</div>
 			<Summary data={data} />
 			{(data.plan?.revision ?? 0) > revision && (
 				<div className="banner" role="alert">
@@ -940,9 +917,6 @@ function Profile({ home, run }: { home: Home; run: Run }) {
 	const [passwordOpen, setPasswordOpen] = useState(false);
 	return (
 		<>
-			<div className="page-heading">
-				<h1>Personal settings</h1>
-			</div>
 			<form
 				className="panel narrow"
 				onSubmit={(e) => {

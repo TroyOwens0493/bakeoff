@@ -49,11 +49,7 @@ export function AccountsView({
 					close={() => setReviewing(null)}
 				/>
 			)}
-			<div className="page-heading">
-				<div>
-					<p className="eyebrow">ACCOUNTS & SETTINGS</p>
-					<h1>A place for every account.</h1>
-				</div>
+			<div className="page-actions">
 				<div className="button-row">
 					<button
 						type="button"
@@ -80,10 +76,6 @@ export function AccountsView({
 					</button>
 				</div>
 			</div>
-			<p className="banner">
-				Plaid Sandbox uses test bank data. New bank accounts start in your
-				private budget.
-			</p>
 			<section className="panel">
 				<h2>Accounts in this budget</h2>
 				{accounts?.map((a) => (

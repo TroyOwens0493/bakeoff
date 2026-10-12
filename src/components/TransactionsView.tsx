@@ -32,11 +32,7 @@ export function TransactionsView({
 	});
 	return (
 		<>
-			<div className="page-heading">
-				<div>
-					<p className="eyebrow">TRANSACTIONS</p>
-					<h1>The details make a difference.</h1>
-				</div>
+			<div className="page-actions">
 				<div className="button-row">
 					<button
 						type="button"
