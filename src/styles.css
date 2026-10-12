@@ -760,8 +760,12 @@ dd {
 	width: 100%;
 	margin: 50px auto;
 }
-.auth-card h2 {
+.auth-card h2,
+.auth-card .auth-welcome {
 	font-size: 27px;
+}
+.auth-card .auth-welcome {
+	color: inherit;
 }
 .auth-card form > button {
 	width: 100%;

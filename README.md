@@ -22,7 +22,18 @@ Set the variables described in `.env.example` on that Convex development deploym
 pnpm dev
 ```
 
-Open http://localhost:3000. Local authentication also accepts http://127.0.0.1:3000 on the same port. Hosted deployments accept only the configured `SITE_URL` origin. Create an account and private budget. Connect a bank, add a monthly plan, and optionally create a shared budget and invite a partner.
+Open http://localhost:3000. Local authentication also accepts http://127.0.0.1:3000 and http://[::1]:3000 on the same port. Create an account and private budget. Connect a bank, add a monthly plan, and optionally create a shared budget and invite a partner.
+
+`pnpm dev` stops with an error if port `3000` is already in use. It does not switch to a different port. If the app is already running, use that server.
+
+If your SSH tunnel or a second development server uses a different browser address or port, set `AUTH_TRUSTED_ORIGINS` on the same Convex development deployment. This is a comma-separated list of extra addresses. For example, to accept http://localhost:3001 as well as http://localhost:3000:
+
+```sh
+pnpm exec convex env set AUTH_TRUSTED_ORIGINS 'http://localhost:3001'
+pnpm exec convex dev --once
+```
+
+Use the address shown in the browser, including its protocol and port. Each configured loopback address also accepts `localhost`, `127.0.0.1`, and `[::1]` with the same protocol and port. Other addresses must be listed explicitly. Hosted deployments accept only `SITE_URL` and any explicitly configured extra origins. Put this setting on Convex; `.env.local` alone does not configure backend authentication.
 
 ## Bank connectivity and email
 

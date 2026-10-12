@@ -58,29 +58,24 @@ export function Auth() {
 				<a className="brand" href="/">
 					<span>b.</span> budget together
 				</a>
-				<h1>
-					A little clarity.
-					<br />
-					More room to live.
-				</h1>
-				<p>
-					Plan each month. Keep personal accounts private. Share a budget when
-					you are ready.
-				</p>
-				<div className="intro-rule">Every dollar has a purpose.</div>
+				<h1>Manage your finances, together.</h1>
+				<div className="intro-rule">Make your money work for you</div>
 			</div>
 			<section className="auth-card">
-				<p className="eyebrow">WELCOME TOGETHER</p>
-				<h2>
-					{
+				<p className={mode === "login" ? "eyebrow auth-welcome" : "eyebrow"}>
+					{mode === "login" ? "WELCOME BACK" : "WELCOME TOGETHER"}
+				</p>
+				{mode !== "login" && (
+					<h2>
 						{
-							login: "Welcome back",
-							register: "Create your account",
-							request: "Reset your password",
-							reset: "Choose a new password",
-						}[mode]
-					}
-				</h2>
+							{
+								register: "Create your account",
+								request: "Reset your password",
+								reset: "Choose a new password",
+							}[mode]
+						}
+					</h2>
+				)}
 				<form onSubmit={submit}>
 					{mode === "register" && (
 						<label>
