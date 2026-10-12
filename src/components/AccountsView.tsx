@@ -21,7 +21,6 @@ export function AccountsView({
 	const exchange = useAction(api.bank.exchange);
 	const sync = useAction(api.bank.sync);
 	const disconnect = useAction(api.bank.disconnect);
-	const manual = useMutation(api.accounts.createManual);
 	const rename = useMutation(api.accounts.rename);
 	const move = useMutation(api.accounts.move);
 	const leave = useMutation(api.sharing.leave);
@@ -30,7 +29,6 @@ export function AccountsView({
 	const revoke = useMutation(api.sharing.revoke);
 	const accept = useAction(api.sharing.accept);
 	const [reviewing, setReviewing] = useState<Id<"connections"> | null>(null);
-	const [manualOpen, setManualOpen] = useState(false);
 	const [moving, setMoving] = useState<
 		NonNullable<typeof accounts>[number] | null
 	>(null);
@@ -51,14 +49,6 @@ export function AccountsView({
 			)}
 			<div className="page-actions">
 				<div className="button-row">
-					<button
-						type="button"
-						className="secondary"
-						disabled={!active}
-						onClick={() => setManualOpen(true)}
-					>
-						Add manual account
-					</button>
 					<button
 						type="button"
 						disabled={!active}
@@ -383,46 +373,6 @@ export function AccountsView({
 						>
 							Confirm account move
 						</button>
-					</form>
-				</Modal>
-			)}
-			{manualOpen && (
-				<Modal
-					title="Add a manual account"
-					onClose={() => setManualOpen(false)}
-				>
-					<form
-						onSubmit={async (e) => {
-							e.preventDefault();
-							const data = new FormData(e.currentTarget);
-							if (
-								await run(() =>
-									manual({
-										spaceId,
-										name: String(data.get("name")),
-										type: String(data.get("type")) as
-											| "checking"
-											| "savings"
-											| "credit card",
-									}),
-								)
-							)
-								setManualOpen(false);
-						}}
-					>
-						<label>
-							Name
-							<input name="name" required maxLength={100} />
-						</label>
-						<label>
-							Type
-							<select name="type">
-								<option>checking</option>
-								<option>savings</option>
-								<option>credit card</option>
-							</select>
-						</label>
-						<button type="submit">Create account</button>
 					</form>
 				</Modal>
 			)}

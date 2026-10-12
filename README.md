@@ -49,7 +49,7 @@ The PDF's API paths describe conceptual operations. This implementation uses aut
 | --- | --- |
 | `auth` and `/api/auth/*` | Registration, sign-in/out, password reset, profile and password changes through Better Auth |
 | `budgets` | Setup, dashboard, category CRUD and reassignment, plan save/activation/draft/repeat, transaction search/pagination/CRUD/splits, reconciliation, monthly review, reports, recurring suggestions, alerts |
-| `accounts` | Authorized account lists, manual accounts, names, assignment moves, connection status |
+| `accounts` | Authorized account lists, names, assignment moves, connection status |
 | `sharing` | Shared-budget creation, email invitations, acceptance, revocation, leave |
 | `contributions` | Planned funding, proposed bank matches, confirmation, removal |
 | `bank` | Link/update sessions, public-token exchange, sync, disconnect, internal imports |

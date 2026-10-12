@@ -67,29 +67,6 @@ export const connections = query({
 		}));
 	},
 });
-export const createManual = mutation({
-	args: {
-		spaceId: v.id("spaces"),
-		name: v.string(),
-		type: v.union(
-			v.literal("checking"),
-			v.literal("savings"),
-			v.literal("credit card"),
-		),
-	},
-	handler: async (ctx, args) => {
-		const { current } = await access(ctx, args.spaceId, true);
-		return ctx.db.insert("accounts", {
-			userId: current._id,
-			spaceId: args.spaceId,
-			name: label(args.name),
-			type: args.type,
-			mask: "manual",
-			active: true,
-			revision: 0,
-		});
-	},
-});
 export const rename = mutation({
 	args: { id: v.id("accounts"), name: v.string(), revision: v.number() },
 	handler: async (ctx, args) => {

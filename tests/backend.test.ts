@@ -161,6 +161,33 @@ const id = <
 >(
 	value: string,
 ) => value as Id<T>;
+async function connectedAccount(
+	db: Memory,
+	spaceId: Id<"spaces">,
+	name = "Checking",
+) {
+	const connectionId = await db.insert("connections", {
+		userId: db.current,
+		itemId: `fixture-item-${db.sequence}`,
+		accessToken: "encrypted",
+		institution: "Fixture Bank",
+		institutionId: "fixture-bank",
+		status: "connected",
+	});
+	return id<"accounts">(
+		await db.insert("accounts", {
+			userId: db.current,
+			spaceId,
+			connectionId,
+			externalId: `fixture-account-${db.sequence}`,
+			name,
+			type: "checking",
+			mask: "0000",
+			active: true,
+			revision: 0,
+		}),
+	);
+}
 async function fixture() {
 	const db = new Memory();
 	await invoke(budgets.setup, db, { name: "Alice", timeZone: "America/Boise" });
@@ -170,11 +197,7 @@ async function fixture() {
 	const categoryId = id<"categories">(
 		[...db.rows.values()].find((x) => x.name === "Groceries")!._id,
 	);
-	const accountId = await invoke(accounts.createManual, db, {
-		spaceId: privateId,
-		name: "Checking",
-		type: "checking",
-	});
+	const accountId = await connectedAccount(db, privateId);
 	return { db, privateId, categoryId, accountId };
 }
 async function entry(
@@ -306,11 +329,7 @@ test("sharing an account preserves private history and leaving limits future rea
 test("contribution matches cancel across budgets and stop counting when a bank correction invalidates them", async () => {
 	const { db, privateId, accountId } = await fixture();
 	const sharedId = await invoke(sharing.create, db, { name: "Together" });
-	const sharedAccount = await invoke(accounts.createManual, db, {
-		spaceId: sharedId,
-		name: "Shared checking",
-		type: "checking",
-	});
+	const sharedAccount = await connectedAccount(db, sharedId, "Shared checking");
 	const outId = await entry(db, privateId, accountId, 30000, "transfer");
 	const inId = await entry(db, sharedId, sharedAccount, -30000, "income");
 	await invoke(contributions.confirm, db, { privateId, sharedId, outId, inId });

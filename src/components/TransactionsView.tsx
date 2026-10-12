@@ -299,10 +299,7 @@ function TransactionEditor({
 						)}
 					</label>
 					{!accounts.some((x) => x.active) && !entry && (
-						<p>
-							Create a manual account or connect a bank in Accounts & settings
-							first.
-						</p>
+						<p>Connect a bank in Accounts & settings first.</p>
 					)}
 					<label>
 						Description
