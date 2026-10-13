@@ -29,10 +29,13 @@ export function AccountsView({
 	const revoke = useMutation(api.sharing.revoke);
 	const accept = useAction(api.sharing.accept);
 	const [reviewing, setReviewing] = useState<Id<"connections"> | null>(null);
+	const [leaving, setLeaving] = useState<Id<"spaces"> | null>(null);
+	const [leavePending, setLeavePending] = useState(false);
 	const [moving, setMoving] = useState<
 		NonNullable<typeof accounts>[number] | null
 	>(null);
 	const space = home.spaces.find((x) => x._id === spaceId)!;
+	const destination = home.spaces.find((x) => x.active && x._id !== spaceId);
 	const hasSharedBudget = home.spaces.some(
 		(x) => x.type === "shared" && x.active,
 	);
@@ -233,17 +236,7 @@ export function AccountsView({
 								<button
 									type="button"
 									className="danger"
-									onClick={() => {
-										if (
-											window.confirm(
-												"Leave this shared budget? Your accounts return to your private budget. The other partner keeps this budget. You keep read access to previously shared records.",
-											)
-										)
-											void run(
-												() => leave({ spaceId }),
-												"You left the shared budget.",
-											);
-									}}
+									onClick={() => setLeaving(spaceId)}
 								>
 									Leave shared budget
 								</button>
@@ -315,6 +308,45 @@ export function AccountsView({
 							run={run}
 						/>
 					))}
+			{leaving && (
+				<Modal title="Leave shared budget" onClose={() => setLeaving(null)}>
+					<p>
+						Your accounts return to your private budget. The other partner keeps
+						this budget. You keep read access to previously shared records.
+					</p>
+					<div className="button-row">
+						<button
+							type="button"
+							className="secondary"
+							onClick={() => setLeaving(null)}
+						>
+							Cancel
+						</button>
+						<button
+							type="button"
+							className="danger"
+							disabled={leavePending}
+							onClick={async () => {
+								if (leavePending) return;
+								setLeavePending(true);
+								try {
+									if (
+										await run(
+											() => leave({ spaceId: leaving }),
+											"You left the shared budget.",
+										)
+									)
+										setLeaving(null);
+								} finally {
+									setLeavePending(false);
+								}
+							}}
+						>
+							{leavePending ? "Leaving…" : "Leave shared budget"}
+						</button>
+					</div>
+				</Modal>
+			)}
 			{moving && (
 				<Modal title="Move account" onClose={() => setMoving(null)}>
 					<p>
@@ -326,15 +358,13 @@ export function AccountsView({
 					<form
 						onSubmit={async (e) => {
 							e.preventDefault();
-							const data = new FormData(e.currentTarget);
+							if (!destination) return;
 							if (
 								await run(
 									() =>
 										move({
 											id: moving._id,
-											destinationId: String(
-												data.get("destination"),
-											) as typeof spaceId,
+											destinationId: destination._id,
 											revision: moving.revision,
 										}),
 									"Account moved. Earlier history was kept in its original budget.",
@@ -343,22 +373,14 @@ export function AccountsView({
 								setMoving(null);
 						}}
 					>
-						<label>
-							Destination budget
-							<select name="destination" required>
-								{home.spaces
-									.filter((x) => x.active && x._id !== spaceId)
-									.map((x) => (
-										<option key={x._id} value={x._id}>
-											{x.name} · {x.type}
-										</option>
-									))}
-							</select>
-						</label>
-						<button
-							type="submit"
-							disabled={!home.spaces.some((x) => x.active && x._id !== spaceId)}
-						>
+						<p>
+							<strong>Destination budget</strong>
+							<br />
+							{destination
+								? `${destination.name} · ${destination.type}`
+								: "No destination budget available."}
+						</p>
+						<button type="submit" disabled={!destination}>
 							Confirm account move
 						</button>
 					</form>
