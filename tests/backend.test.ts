@@ -234,7 +234,7 @@ test("private direct queries are denied to another user", async () => {
 		/access/,
 	);
 });
-test("active plans reject imbalance and stale edits", async () => {
+test("saving budgets rejects imbalance and stale edits", async () => {
 	const { db, privateId, categoryId } = await fixture();
 	const plan = {
 		spaceId: privateId,
@@ -242,10 +242,31 @@ test("active plans reject imbalance and stale edits", async () => {
 		expectedIncome: 10000,
 		savingsTarget: 2000,
 		limits: [{ categoryId, amount: 8000 }],
-		activate: true,
 		revision: 0,
 	};
+	await assert.rejects(
+		() => invoke(budgets.savePlan, db, { ...plan, savingsTarget: 2001 }),
+		/balance/,
+	);
+	assert.equal(
+		(
+			await invoke(budgets.dashboard, db, {
+				spaceId: privateId,
+				month: plan.month,
+			})
+		).plan,
+		null,
+	);
 	await invoke(budgets.savePlan, db, plan);
+	assert.equal(
+		(
+			await invoke(budgets.dashboard, db, {
+				spaceId: privateId,
+				month: plan.month,
+			})
+		).plan?.saved,
+		true,
+	);
 	await assert.rejects(
 		() =>
 			invoke(budgets.savePlan, db, {
@@ -267,13 +288,20 @@ test("repeated reviews replace carry-forward and destination allocations", async
 		expectedIncome: 100000,
 		savingsTarget: 20000,
 		limits: [{ categoryId, amount: 80000 }],
-		activate: true,
 		revision: 0,
 	});
 	await invoke(budgets.review, db, {
 		spaceId: privateId,
 		month: "2026-09",
 		allocations: [{ categoryId, amount: 10000 }],
+		revision: 1,
+	});
+	await invoke(budgets.savePlan, db, {
+		spaceId: privateId,
+		month: "2026-10",
+		expectedIncome: 100000,
+		savingsTarget: 20000,
+		limits: [{ categoryId, amount: 90000 }],
 		revision: 1,
 	});
 	await invoke(budgets.review, db, {
@@ -287,11 +315,167 @@ test("repeated reviews replace carry-forward and destination allocations", async
 		month: "2026-10",
 	});
 	assert.equal(next.funds.carry, 5000);
-	assert.equal(next.plan!.limits[0].amount, 85000);
+	assert.equal(next.plan?.limits[0].amount, 85000);
+	assert.equal(next.plan?.saved, true);
+	assert.equal(next.balance, 0);
+	const source = await invoke(budgets.dashboard, db, {
+		spaceId: privateId,
+		month: "2026-09",
+	});
+	assert.equal(source.savings, 50000);
+	assert.equal(source.plan?.savingsTarget, 20000);
 	assert.equal(
 		[...db.rows.values()].filter((x) => x._id.startsWith("carry:")).length,
 		1,
 	);
+});
+test("new months repeat limits but require a save before review", async () => {
+	const { db, privateId, categoryId } = await fixture();
+	const values = {
+		spaceId: privateId,
+		expectedIncome: 10000,
+		savingsTarget: 2000,
+		limits: [{ categoryId, amount: 8000 }],
+	};
+	await invoke(budgets.savePlan, db, {
+		...values,
+		month: "2026-09",
+		revision: 0,
+	});
+	await invoke(budgets.ensureMonth, db, {
+		spaceId: privateId,
+		month: "2026-10",
+	});
+	const next = await invoke(budgets.dashboard, db, {
+		spaceId: privateId,
+		month: "2026-10",
+	});
+	assert.deepEqual(next.plan?.limits, values.limits);
+	assert.equal(next.plan?.saved, false);
+	await assert.rejects(
+		() =>
+			invoke(budgets.review, db, {
+				spaceId: privateId,
+				month: "2026-10",
+				allocations: [],
+				revision: 1,
+			}),
+		/Save this month/,
+	);
+	await invoke(budgets.savePlan, db, {
+		...values,
+		month: "2026-10",
+		revision: 1,
+	});
+	await invoke(budgets.review, db, {
+		spaceId: privateId,
+		month: "2026-10",
+		allocations: [],
+		revision: 2,
+	});
+});
+test("existing budget records remain readable and migrate on save", async () => {
+	for (const status of ["draft", "active"] as const) {
+		const { db, privateId, categoryId } = await fixture();
+		const values = {
+			spaceId: privateId,
+			month: "2026-09",
+			expectedIncome: 10000,
+			savingsTarget: 2000,
+			limits: [{ categoryId, amount: 8000 }],
+			revision: 1,
+		};
+		const planId = await db.insert("plans", {
+			...values,
+			status,
+			reviewed: false,
+		});
+		const before = await invoke(budgets.dashboard, db, {
+			spaceId: privateId,
+			month: values.month,
+		});
+		assert.equal(before.plan?.saved, status === "active");
+		await invoke(budgets.savePlan, db, values);
+		assert.equal((await db.get(planId))?.saved, true);
+		assert.equal((await db.get(planId))?.status, undefined);
+	}
+});
+test("planned contributions can change after saving and both budgets must be saved again", async () => {
+	const { db, privateId, categoryId } = await fixture();
+	const sharedId = await invoke(sharing.create, db, { name: "Together" });
+	const personal = {
+		spaceId: privateId,
+		month: "2026-09",
+		expectedIncome: 10000,
+		savingsTarget: 2000,
+		limits: [{ categoryId, amount: 8000 }],
+		revision: 0,
+	};
+	const shared = {
+		spaceId: sharedId,
+		month: "2026-09",
+		expectedIncome: 0,
+		savingsTarget: 0,
+		limits: [],
+		revision: 0,
+	};
+	await invoke(budgets.savePlan, db, personal);
+	await invoke(budgets.savePlan, db, shared);
+	await invoke(contributions.savePlanned, db, {
+		privateId,
+		sharedId,
+		month: "2026-09",
+		planned: 1000,
+		revision: 0,
+	});
+	for (const spaceId of [privateId, sharedId]) {
+		const changed = await invoke(budgets.dashboard, db, {
+			spaceId,
+			month: "2026-09",
+		});
+		assert.equal(changed.plan?.saved, false);
+		assert.equal(changed.plan?.revision, 2);
+		await assert.rejects(
+			() =>
+				invoke(budgets.review, db, {
+					spaceId,
+					month: "2026-09",
+					allocations: [],
+					revision: 2,
+				}),
+			/Save this month/,
+		);
+	}
+	await assert.rejects(
+		() => invoke(budgets.savePlan, db, { ...personal, revision: 1 }),
+		/changed/,
+	);
+	await invoke(budgets.savePlan, db, {
+		...personal,
+		limits: [{ categoryId, amount: 7000 }],
+		revision: 2,
+	});
+	await invoke(budgets.savePlan, db, {
+		...shared,
+		savingsTarget: 1000,
+		revision: 2,
+	});
+	await invoke(contributions.savePlanned, db, {
+		privateId,
+		sharedId,
+		month: "2026-09",
+		planned: 1000,
+		revision: 1,
+	});
+	for (const spaceId of [privateId, sharedId]) {
+		const saved = await invoke(budgets.dashboard, db, {
+			spaceId,
+			month: "2026-09",
+		});
+		assert.equal(saved.plan?.saved, true);
+		assert.equal(saved.plan?.revision, 3);
+		assert.equal(saved.balance, 0);
+	}
 });
 test("sharing an account preserves private history and leaving limits future reads", async () => {
 	const { db, privateId, accountId } = await fixture();
@@ -429,7 +613,6 @@ test("category deletion reassigns transactions and preserves the sum of plan lim
 			{ categoryId, amount: 6000 },
 			{ categoryId: replacementId, amount: 4000 },
 		],
-		activate: true,
 		revision: 0,
 	});
 	await invoke(budgets.deleteCategory, db, {

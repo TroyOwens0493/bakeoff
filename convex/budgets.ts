@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import {
 	assertRevision,
 	recurring as detectRecurring,
+	isPlanSaved,
 	leftovers,
 	money,
 	month,
@@ -371,7 +372,7 @@ export const dashboard = query({
 			.collect();
 		return {
 			...result,
-			plan,
+			plan: plan ? { ...plan, saved: isPlanSaved(plan) } : null,
 			categories: categories.sort((a, b) => a.order - b.order),
 			reserved,
 			available: leftovers(
@@ -397,7 +398,6 @@ export const savePlan = mutation({
 		expectedIncome: v.number(),
 		savingsTarget: v.number(),
 		limits: v.array(split),
-		activate: v.boolean(),
 		revision: v.number(),
 	},
 	handler: async (ctx, args) => {
@@ -444,7 +444,7 @@ export const savePlan = mutation({
 			funds.outgoing,
 			funds.carry,
 		);
-		if ((args.activate || old?.status === "active") && balance !== 0)
+		if (balance !== 0)
 			throw new ConvexError(
 				`The plan must balance. ${balance} cents remain to allocate.`,
 			);
@@ -454,14 +454,11 @@ export const savePlan = mutation({
 			expectedIncome: args.expectedIncome,
 			savingsTarget: args.savingsTarget,
 			limits: args.limits,
-			status:
-				args.activate || old?.status === "active"
-					? ("active" as const)
-					: ("draft" as const),
+			saved: true,
 			reviewed: false,
 			revision: (old?.revision ?? 0) + 1,
 		};
-		if (old) await ctx.db.patch(old._id, value);
+		if (old) await ctx.db.patch(old._id, { ...value, status: undefined });
 		else await ctx.db.insert("plans", value);
 	},
 });
@@ -491,7 +488,7 @@ export const repeatPlan = mutation({
 			expectedIncome: old.expectedIncome,
 			savingsTarget: old.savingsTarget,
 			limits: old.limits,
-			status: "draft",
+			saved: false,
 			reviewed: false,
 			revision: 1,
 		});
@@ -735,9 +732,9 @@ export const review = mutation({
 				q.eq("spaceId", args.spaceId).eq("month", args.month),
 			)
 			.unique();
-		if (!plan || plan.status !== "active")
+		if (!plan || !isPlanSaved(plan))
 			throw new ConvexError(
-				"Activate this month before completing its review.",
+				"Save this month’s budget before completing its review.",
 			);
 		assertRevision(plan.revision, args.revision);
 		const result = await results(ctx, args.spaceId, args.month);
@@ -762,10 +759,6 @@ export const review = mutation({
 				q.eq("spaceId", args.spaceId).eq("month", destinationMonth),
 			)
 			.unique();
-		if (destination?.status === "active")
-			throw new ConvexError(
-				"The next month is active. Return it to draft before changing carry-forward.",
-			);
 		const previous = await ctx.db
 			.query("carry")
 			.withIndex("by_source", (q) =>
@@ -805,11 +798,12 @@ export const review = mutation({
 				categoryId,
 				amount,
 			})),
-			status: "draft" as const,
+			saved: isPlanSaved(destination),
 			reviewed: false,
 			revision: base.revision + 1,
 		};
-		if (destination) await ctx.db.patch(destination._id, next);
+		if (destination)
+			await ctx.db.patch(destination._id, { ...next, status: undefined });
 		else await ctx.db.insert("plans", next);
 		for (const old of previous) await ctx.db.delete(old._id);
 		for (const x of args.allocations)
@@ -822,19 +816,6 @@ export const review = mutation({
 				});
 		await ctx.db.patch(plan._id, {
 			reviewed: true,
-			revision: plan.revision + 1,
-		});
-	},
-});
-export const draftPlan = mutation({
-	args: { id: v.id("plans"), revision: v.number() },
-	handler: async (ctx, args) => {
-		const plan = await ctx.db.get(args.id);
-		if (!plan) throw new ConvexError("Plan not found.");
-		await access(ctx, plan.spaceId, true);
-		assertRevision(plan.revision, args.revision);
-		await ctx.db.patch(plan._id, {
-			status: "draft",
 			revision: plan.revision + 1,
 		});
 	},
@@ -998,7 +979,7 @@ export const ensureMonth = mutation({
 			expectedIncome: previous.expectedIncome,
 			savingsTarget: previous.savingsTarget,
 			limits: previous.limits,
-			status: "draft",
+			saved: false,
 			reviewed: false,
 			revision: 1,
 		});

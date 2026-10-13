@@ -107,7 +107,9 @@ export default defineSchema({
 		expectedIncome: v.number(),
 		savingsTarget: v.number(),
 		limits: v.array(split),
-		status: v.union(v.literal("draft"), v.literal("active")),
+		saved: v.optional(v.boolean()),
+		// Keep existing records valid while they move to the saved field.
+		status: v.optional(v.union(v.literal("draft"), v.literal("active"))),
 		reviewed: v.boolean(),
 		revision: v.number(),
 	}).index("by_month", ["spaceId", "month"]),

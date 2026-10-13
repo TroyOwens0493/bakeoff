@@ -522,7 +522,6 @@ function PlanView({
 }: ViewProps & { data: Dashboard }) {
 	const save = useMutation(api.budgets.savePlan);
 	const repeat = useMutation(api.budgets.repeatPlan);
-	const draft = useMutation(api.budgets.draftPlan);
 	const [expected, setExpected] = useState(data.plan?.expectedIncome ?? 0);
 	const [target, setTarget] = useState(data.plan?.savingsTarget ?? 0);
 	const [limits, setLimits] = useState<Record<string, number>>(
@@ -535,6 +534,7 @@ function PlanView({
 	);
 	const [revision, setRevision] = useState(data.plan?.revision ?? 0);
 	const [formVersion, setFormVersion] = useState(0);
+	const [saving, setSaving] = useState(false);
 	const total = Object.values(limits).reduce((s, x) => s + x, 0);
 	const balance =
 		expected +
@@ -553,22 +553,24 @@ function PlanView({
 	async function submit(e: FormEvent<HTMLFormElement>) {
 		e.preventDefault();
 		const form = new FormData(e.currentTarget);
-		const button = (e.nativeEvent as SubmitEvent)
-			.submitter as HTMLButtonElement | null;
-		const saved = await run(() =>
-			save({
-				spaceId,
-				month,
-				expectedIncome: cents(String(form.get("expected"))),
-				savingsTarget: cents(String(form.get("target"))),
-				limits: data.categories.map((c) => ({
-					categoryId: c._id,
-					amount: cents(String(form.get(c._id))),
-				})),
-				activate: button?.value === "activate",
-				revision,
-			}),
+		if (saving) return;
+		setSaving(true);
+		const saved = await run(
+			() =>
+				save({
+					spaceId,
+					month,
+					expectedIncome: cents(String(form.get("expected"))),
+					savingsTarget: cents(String(form.get("target"))),
+					limits: data.categories.map((c) => ({
+						categoryId: c._id,
+						amount: cents(String(form.get(c._id))),
+					})),
+					revision,
+				}),
+			"Budget saved.",
 		);
+		setSaving(false);
 		if (saved) setRevision(revision + 1);
 	}
 	return (
@@ -602,7 +604,7 @@ function PlanView({
 			<form key={formVersion} onSubmit={submit} className="plan-grid">
 				<section className="panel">
 					<h2>Monthly spending</h2>
-					<fieldset disabled={!active}>
+					<fieldset disabled={!active || saving}>
 						<label>
 							Expected take-home income
 							<input
@@ -641,8 +643,8 @@ function PlanView({
 							/>
 						</label>
 						<p className="muted">
-							Category limits repeat in the next month’s draft. An active plan
-							must stay balanced when you edit it.
+							Category limits repeat next month. Allocate all available money,
+							then save your budget.
 						</p>
 					</fieldset>
 				</section>
@@ -687,19 +689,9 @@ function PlanView({
 							? "✓ Every dollar has a place."
 							: "Adjust your plan until this amount is zero."}
 					</p>
-					<button type="submit" disabled={!active} name="action" value="save">
-						Save {data.plan?.status === "active" ? "changes" : "draft"}
+					<button type="submit" disabled={!active || saving || balance !== 0}>
+						{saving ? "Saving…" : "Save budget"}
 					</button>
-					{data.plan?.status !== "active" && (
-						<button
-							type="submit"
-							disabled={!active || balance !== 0}
-							name="action"
-							value="activate"
-						>
-							Activate plan
-						</button>
-					)}
 				</aside>
 			</form>
 			<div className="button-row">
@@ -711,25 +703,11 @@ function PlanView({
 						onClick={() =>
 							run(
 								() => repeat({ spaceId, month }),
-								"Next month’s draft created.",
+								"Limits copied. Open next month to finish and save your budget.",
 							)
 						}
 					>
 						Copy limits to {nextMonth(month)}
-					</button>
-				)}
-				{data.plan?.status === "active" && (
-					<button
-						type="button"
-						className="text-button"
-						disabled={!active}
-						onClick={() =>
-							run(() =>
-								draft({ id: data.plan!._id, revision: data.plan!.revision }),
-							)
-						}
-					>
-						Return to draft
 					</button>
 				)}
 			</div>
@@ -898,9 +876,12 @@ function ReviewView({
 						Reserving funds does not change this month’s income, spending,
 						savings, or target. Late bank corrections can require a new review.
 					</p>
+					{!data.plan?.saved && (
+						<p>Save this month’s budget before completing its review.</p>
+					)}
 					<button
 						type="submit"
-						disabled={reserved > available || data.plan?.status !== "active"}
+						disabled={reserved > available || !data.plan?.saved}
 					>
 						{data.plan?.reviewed
 							? "Update monthly review"

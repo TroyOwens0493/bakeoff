@@ -39,6 +39,10 @@ export function ContributionsView({
 				A contribution reduces private funding and adds the same amount to
 				shared funding. It is separate from earned income.
 			</p>
+			<p className="muted">
+				After changing the planned amount, balance and save both monthly
+				budgets.
+			</p>
 			{(data.contribution?.revision ?? 0) > snapshot.revision && (
 				<div className="banner" role="alert">
 					Contribution funding changed.{" "}

@@ -105,11 +105,13 @@ export const savePlanned = mutation({
 						q.eq("spaceId", id).eq("month", args.month),
 					)
 					.unique();
-				if (plan?.status === "active")
-					throw new ConvexError(
-						"Return both monthly plans to draft before changing planned contributions.",
-					);
-				if (plan) await ctx.db.patch(plan._id, { revision: plan.revision + 1 });
+				if (plan)
+					await ctx.db.patch(plan._id, {
+						saved: false,
+						status: undefined,
+						reviewed: false,
+						revision: plan.revision + 1,
+					});
 			}
 		if (old)
 			await ctx.db.patch(old._id, {

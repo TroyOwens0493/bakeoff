@@ -49,8 +49,8 @@ Resend sends partner invitations and password reset emails. Configure a verified
 - A departing partner's accounts return to their private budget. The remaining partner keeps the shared budget active. The departing partner can read records shared before the departure and cannot edit that budget or read later transactions.
 - The app suggests equal and opposite posted bank entries for a shared contribution. The user confirms the match. Contributions affect private and shared funding equally and do not count as earned income.
 - **Exclusion was removed at the user's request**, overriding that feature in the PDF. Duplicate manual entries can be reconciled with bank imports instead.
-- Draft plans can be incomplete. Activation and changes to active plans require a zero balance. Changing planned contributions requires both affected plans to be drafts.
-- New monthly drafts repeat prior limits. Monthly review explicitly adds carry-forward to next month's categories or savings target. Repeated reviews replace existing reservations and adjust the destination draft by the difference; they do not change historical savings results.
+- **Draft and activation steps were removed at the user's request**, overriding those steps in the PDF. Users finish a monthly budget and choose **Save budget**. Every save requires a zero balance. A planned contribution change requires both affected budgets to be balanced and saved again.
+- New months start with prior limits for the user to check and save. Monthly review explicitly adds carry-forward to next month's categories or savings target. Repeated reviews replace existing reservations and adjust the destination budget by the difference, including an already saved budget; they do not change historical savings results. Existing records with the former draft/active field stay readable and move to the new saved field when updated.
 
 ## API and modules
 
@@ -59,7 +59,7 @@ The PDF's API paths describe conceptual operations. This implementation uses aut
 | Module | Operations |
 | --- | --- |
 | `auth` and `/api/auth/*` | Registration, sign-in/out, password reset, profile and password changes through Better Auth |
-| `budgets` | Setup, dashboard, category CRUD and reassignment, plan save/activation/draft/repeat, transaction search/pagination/CRUD/splits, reconciliation, monthly review, reports, recurring suggestions, alerts |
+| `budgets` | Setup, dashboard, category CRUD and reassignment, budget save/repeat, transaction search/pagination/CRUD/splits, reconciliation, monthly review, reports, recurring suggestions, alerts |
 | `accounts` | Authorized account lists, names, assignment moves, connection status |
 | `sharing` | Shared-budget creation, email invitations, acceptance, revocation, leave |
 | `contributions` | Planned funding, proposed bank matches, confirmation, removal |
@@ -83,7 +83,7 @@ Tests use Node's built-in test runner. Accounting tests cover cents, balance, re
 
 ## Current verification limits
 
-The implementation was developed without an authenticated Convex CLI session. API declarations were prepared locally and **must be regenerated with `pnpm exec convex dev`** once sign-in is available. The backend component has not yet been deployed or validated against a live Convex development deployment. Registration, reset emails, partner emails, Plaid Link/imports, and two-browser collaboration need live integration testing after configuration.
+The backend has been deployed to the configured Convex development deployment, and its API declarations have been regenerated. Budget edits have been tested in the authenticated UI, including repeated saves and persistence after a page reload. Keep `pnpm exec convex dev` running with `pnpm dev` so backend requests stay in sync with the UI. To sync the backend once, run `pnpm exec convex dev --once`. Registration, reset emails, partner emails, Plaid Link/imports, and two-browser collaboration still need live integration testing.
 
 Persistent Plaid account identifiers prevent duplicate connections where Plaid provides them. When no persistent ID is available, a match on bank, account type, and last four digits pauses the new connection. The user must identify it as the same account (keep the existing import) or a different account (import it). This check includes the current partner's accounts without returning their private account details. Imports, webhooks, and scheduled sync cannot bypass a pending review.
 

@@ -27,6 +27,12 @@ export type Plan = {
 	savingsTarget: number;
 	limits: { categoryId: string; amount: number }[];
 };
+export function isPlanSaved(
+	plan: { saved?: boolean; status?: "draft" | "active" } | null,
+): boolean {
+	// Read existing records until they are next saved with the new field.
+	return plan?.saved ?? plan?.status === "active";
+}
 export function planBalance(
 	plan: Plan,
 	incoming = 0,

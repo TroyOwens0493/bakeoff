@@ -18,7 +18,7 @@ test("money is exact to the cent, with strict input validation", () => {
 	assert.throws(() => cents("1e3"));
 	assert.throws(() => cents("900719925474099.00"));
 });
-test("activation accounts for contributions, savings and carry-forward", () => {
+test("budget balance accounts for contributions, savings and carry-forward", () => {
 	const p = {
 		expectedIncome: 300000,
 		savingsTarget: 50000,
