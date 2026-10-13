@@ -11,7 +11,6 @@ import {
 	Plus,
 	Settings,
 	TrendingUp,
-	X,
 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -19,6 +18,7 @@ import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { cents, nextMonth } from "../domain/budget";
 import { authClient } from "../lib/auth-client";
 import { AccountsView } from "./AccountsView";
+import { ErrorBanner } from "./ErrorBanner";
 import { SpendingChart } from "./SpendingChart";
 import { TransactionsView } from "./TransactionsView";
 import { Modal, usd } from "./ui";
@@ -179,17 +179,7 @@ export function BudgetApp({ home }: { home: Home }) {
 					</p>
 				)}
 				{error && (
-					<div className="banner error dismissible-banner" role="alert">
-						{error}
-						<button
-							type="button"
-							className="banner-dismiss"
-							aria-label="Dismiss error notification"
-							onClick={() => setError("")}
-						>
-							<X size={18} aria-hidden="true" />
-						</button>
-					</div>
+					<ErrorBanner message={error} onDismiss={() => setError("")} />
 				)}
 				{notice && (
 					<div className="save-notice" aria-live="polite">
