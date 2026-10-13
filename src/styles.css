@@ -806,7 +806,11 @@ dd {
 	gap: 10px;
 	font-size: 12px;
 }
+:root:has(dialog:modal) {
+	overflow: hidden;
+}
 dialog {
+	margin: auto;
 	background: white;
 	color: inherit;
 	border: 1px solid var(--border);
@@ -814,6 +818,8 @@ dialog {
 	max-width: 650px;
 	width: calc(100% - 32px);
 	max-height: 90vh;
+	overflow: auto;
+	overscroll-behavior: contain;
 	padding: 28px;
 	box-shadow: 0 12px 80px #20352825;
 }
