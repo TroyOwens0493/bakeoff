@@ -731,6 +731,23 @@ dd {
 	color: #91412c;
 	border-color: #ebc8be;
 }
+.dismissible-banner {
+	position: relative;
+	padding-right: 64px;
+	overflow-wrap: anywhere;
+}
+.banner-dismiss {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	width: 42px;
+	padding: 10px;
+	background: transparent;
+	color: inherit;
+}
+.banner-dismiss:hover {
+	background: #ebc8be;
+}
 .save-notice {
 	color: var(--green);
 	padding: 0 0 16px;

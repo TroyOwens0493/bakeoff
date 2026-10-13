@@ -11,6 +11,7 @@ import {
 	Plus,
 	Settings,
 	TrendingUp,
+	X,
 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -178,8 +179,16 @@ export function BudgetApp({ home }: { home: Home }) {
 					</p>
 				)}
 				{error && (
-					<div className="banner error" role="alert">
+					<div className="banner error dismissible-banner" role="alert">
 						{error}
+						<button
+							type="button"
+							className="banner-dismiss"
+							aria-label="Dismiss error notification"
+							onClick={() => setError("")}
+						>
+							<X size={18} aria-hidden="true" />
+						</button>
 					</div>
 				)}
 				{notice && (
