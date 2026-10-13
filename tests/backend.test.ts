@@ -13,6 +13,7 @@ import { authComponent } from "../convex/auth.ts";
 import * as bank from "../convex/bank.ts";
 import * as budgets from "../convex/budgets.ts";
 import * as contributions from "../convex/contributions.ts";
+import * as personalAllocations from "../convex/personalAllocations.ts";
 import * as sharing from "../convex/sharing.ts";
 
 type Reference<T> =
@@ -1026,4 +1027,343 @@ test("partner duplicate checks do not expose private names and preserve other se
 	);
 	assert.equal(imported.length, 1);
 	assert.equal(imported[0].externalId, "other");
+});
+
+async function fundedHousehold() {
+	const fixtureData = await fixture();
+	const { db } = fixtureData;
+	const sharedId = await invoke(sharing.create, db, {});
+	const membership = [...db.rows.values()].find(
+		(x) => x.spaceId === sharedId && x.userId === "alice",
+	)!;
+	await db.patch(membership._id, {
+		joinedAt: Date.parse("2026-09-01T12:00:00Z"),
+	});
+	db.current = "bob";
+	await invoke(budgets.setup, db, { name: "Bob", timeZone: "America/Boise" });
+	const bobId = id<"spaces">(
+		[...db.rows.values()].find(
+			(x) => x.type === "private" && x.ownerId === "bob",
+		)!._id,
+	);
+	await db.insert("memberships", {
+		spaceId: sharedId,
+		userId: "bob",
+		active: true,
+		joinedAt: Date.parse("2026-09-01T12:00:00Z"),
+	});
+	db.current = "alice";
+	return { ...fixtureData, sharedId, bobId };
+}
+
+test("shared allocations fund both personal budgets immediately without bank transfers", async () => {
+	const { db, privateId, sharedId, bobId, categoryId, accountId } =
+		await fundedHousehold();
+	await entry(db, privateId, accountId, -100000, "income");
+	await entry(db, privateId, accountId, 10000, "purchase", categoryId);
+	await invoke(personalAllocations.save, db, {
+		sharedId,
+		privateId,
+		month: "2026-09",
+		amount: 20000,
+		revision: 0,
+	});
+	await invoke(personalAllocations.save, db, {
+		sharedId,
+		privateId: bobId,
+		month: "2026-09",
+		amount: 30000,
+		revision: 0,
+	});
+	const shared = await invoke(budgets.dashboard, db, {
+		spaceId: sharedId,
+		month: "2026-09",
+	});
+	const personal = await invoke(budgets.dashboard, db, {
+		spaceId: privateId,
+		month: "2026-09",
+	});
+	db.current = "bob";
+	const bob = await invoke(budgets.dashboard, db, {
+		spaceId: bobId,
+		month: "2026-09",
+	});
+	assert.equal(shared.income, 100000);
+	assert.equal(shared.outgoing, 50000);
+	assert.equal(shared.savings, 50000);
+	assert.equal(personal.income, 0);
+	assert.equal(personal.incoming, 20000);
+	assert.equal(personal.savings, 10000);
+	assert.equal(bob.incoming, 30000);
+	assert.equal(shared.savings + personal.savings + bob.savings, 90000);
+	assert.equal(shared.entries.length, 0);
+	assert.equal(shared.spending, 0);
+	assert.equal(
+		[...db.rows.values()].filter((x) => x._id.startsWith("transactions:"))
+			.length,
+		2,
+	);
+});
+
+test("both partners can edit allocations without private access; outsiders and stale edits are rejected", async () => {
+	const { db, privateId, sharedId, bobId } = await fundedHousehold();
+	db.current = "bob";
+	await invoke(personalAllocations.save, db, {
+		sharedId,
+		privateId,
+		month: "2026-09",
+		amount: 12300,
+		revision: 0,
+	});
+	const rows = await invoke(personalAllocations.list, db, {
+		sharedId,
+		month: "2026-09",
+	});
+	assert.deepEqual(
+		rows.find((x) => x.privateId === privateId),
+		{ privateId, name: "Alice", active: true, amount: 12300, revision: 1 },
+	);
+	assert.equal(rows.find((x) => x.privateId === bobId)!.amount, 0);
+	await assert.rejects(
+		() =>
+			invoke(budgets.dashboard, db, { spaceId: privateId, month: "2026-09" }),
+		/access/,
+	);
+	await assert.rejects(
+		() =>
+			invoke(personalAllocations.save, db, {
+				sharedId,
+				privateId,
+				month: "2026-09",
+				amount: 100,
+				revision: 0,
+			}),
+		/changed/,
+	);
+	await assert.rejects(
+		() =>
+			invoke(personalAllocations.save, db, {
+				sharedId,
+				privateId,
+				month: "2026-09",
+				amount: -1,
+				revision: 1,
+			}),
+		/negative/,
+	);
+	db.current = "eve";
+	await assert.rejects(
+		() => invoke(personalAllocations.list, db, { sharedId, month: "2026-09" }),
+		/access/,
+	);
+	await assert.rejects(
+		() =>
+			invoke(personalAllocations.save, db, {
+				sharedId,
+				privateId,
+				month: "2026-09",
+				amount: 100,
+				revision: 1,
+			}),
+		/access/,
+	);
+	await invoke(budgets.setup, db, { name: "Eve", timeZone: "UTC" });
+	const eveId = id<"spaces">(
+		[...db.rows.values()].find(
+			(x) => x.type === "private" && x.ownerId === "eve",
+		)!._id,
+	);
+	db.current = "alice";
+	await assert.rejects(
+		() =>
+			invoke(personalAllocations.save, db, {
+				sharedId,
+				privateId: eveId,
+				month: "2026-09",
+				amount: 100,
+				revision: 0,
+			}),
+		/active member/,
+	);
+});
+
+test("shared planned income and personal allocations balance; allocation changes require both plans to be saved again", async () => {
+	const { db, privateId, sharedId, categoryId } = await fundedHousehold();
+	await invoke(personalAllocations.save, db, {
+		sharedId,
+		privateId,
+		month: "2026-09",
+		amount: 20000,
+		revision: 0,
+	});
+	const personalPlan = {
+		spaceId: privateId,
+		month: "2026-09",
+		expectedIncome: 0,
+		savingsTarget: 0,
+		limits: [{ categoryId, amount: 20000 }],
+		revision: 0,
+	};
+	const sharedPlan = {
+		spaceId: sharedId,
+		month: "2026-09",
+		expectedIncome: 100000,
+		savingsTarget: 80000,
+		limits: [],
+		revision: 0,
+	};
+	await invoke(budgets.savePlan, db, personalPlan);
+	await invoke(budgets.savePlan, db, sharedPlan);
+	await assert.rejects(
+		() =>
+			invoke(budgets.savePlan, db, {
+				...personalPlan,
+				expectedIncome: 1000,
+				revision: 1,
+			}),
+		/shared budget/,
+	);
+	await assert.rejects(
+		() =>
+			invoke(contributions.savePlanned, db, {
+				privateId,
+				sharedId,
+				month: "2026-09",
+				planned: 100,
+				revision: 0,
+			}),
+		/shared monthly budget/,
+	);
+	await invoke(personalAllocations.save, db, {
+		sharedId,
+		privateId,
+		month: "2026-09",
+		amount: 25000,
+		revision: 1,
+	});
+	for (const spaceId of [privateId, sharedId]) {
+		const data = await invoke(budgets.dashboard, db, {
+			spaceId,
+			month: "2026-09",
+		});
+		assert.equal(data.plan!.saved, false);
+		assert.equal(data.plan!.revision, 2);
+	}
+	await invoke(budgets.savePlan, db, {
+		...personalPlan,
+		limits: [{ categoryId, amount: 25000 }],
+		revision: 2,
+	});
+	await invoke(budgets.savePlan, db, {
+		...sharedPlan,
+		savingsTarget: 75000,
+		revision: 2,
+	});
+});
+
+test("income routing preserves months before joining and excludes private income imported after departure", async () => {
+	const { db, privateId, sharedId, accountId } = await fundedHousehold();
+	await entry(
+		db,
+		privateId,
+		accountId,
+		-10000,
+		"income",
+		undefined,
+		"2026-08-10",
+	);
+	assert.equal(
+		(
+			await invoke(budgets.dashboard, db, {
+				spaceId: privateId,
+				month: "2026-08",
+			})
+		).income,
+		10000,
+	);
+	assert.equal(
+		(
+			await invoke(budgets.dashboard, db, {
+				spaceId: sharedId,
+				month: "2026-08",
+			})
+		).income,
+		0,
+	);
+	await entry(db, privateId, accountId, -20000, "income");
+	const membership = [...db.rows.values()].find(
+		(x) => x.spaceId === sharedId && x.userId === "alice",
+	)!;
+	const leftAt = Date.now();
+	await db.patch(membership._id, { active: false, leftAt });
+	const later = await entry(db, privateId, accountId, -30000, "income");
+	await db.patch(later, { _creationTime: leftAt + 1 });
+	db.current = "bob";
+	assert.equal(
+		(
+			await invoke(budgets.dashboard, db, {
+				spaceId: sharedId,
+				month: "2026-09",
+			})
+		).income,
+		20000,
+	);
+	db.current = "alice";
+	assert.equal(
+		(
+			await invoke(budgets.dashboard, db, {
+				spaceId: privateId,
+				month: "2026-09",
+			})
+		).income,
+		30000,
+	);
+});
+
+test("bank transfers and legacy contributions do not add funding to the new allocation model", async () => {
+	const { db, privateId, sharedId, accountId } = await fundedHousehold();
+	const sharedAccount = await connectedAccount(db, sharedId, "Shared checking");
+	const outId = await entry(db, privateId, accountId, 5000, "transfer");
+	const inId = await entry(db, sharedId, sharedAccount, -5000, "transfer");
+	await db.insert("contributions", {
+		privateId,
+		sharedId,
+		month: "2026-09",
+		planned: 5000,
+		pairs: [{ outId, inId, amount: 5000 }],
+		revision: 1,
+	});
+	await invoke(personalAllocations.save, db, {
+		sharedId,
+		privateId,
+		month: "2026-09",
+		amount: 10000,
+		revision: 0,
+	});
+	const personal = await invoke(budgets.dashboard, db, {
+		spaceId: privateId,
+		month: "2026-09",
+	});
+	const shared = await invoke(budgets.dashboard, db, {
+		spaceId: sharedId,
+		month: "2026-09",
+	});
+	assert.equal(personal.funds.incoming, 10000);
+	assert.equal(personal.funds.outgoing, 0);
+	assert.equal(personal.incoming, 10000);
+	assert.equal(personal.outgoing, 0);
+	assert.equal(shared.funds.incoming, 0);
+	assert.equal(shared.funds.outgoing, 10000);
+	assert.equal(shared.income, 0);
+	assert.equal(shared.savings + personal.savings, 0);
+	await assert.rejects(
+		() =>
+			invoke(contributions.confirm, db, {
+				privateId,
+				sharedId,
+				outId: id<"transactions">(outId),
+				inId: id<"transactions">(inId),
+			}),
+		/budget allocation/,
+	);
 });

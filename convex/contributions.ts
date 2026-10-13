@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { assertRevision, money, month } from "../src/domain/budget";
 import { mutation, query } from "./_generated/server";
 import { access } from "./access";
+import { sharedForPersonal } from "./model/personalFunding";
 export const list = query({
 	args: {
 		privateId: v.id("spaces"),
@@ -87,6 +88,10 @@ export const savePlanned = mutation({
 		const { space: shared } = await access(ctx, args.sharedId, true);
 		month(args.month);
 		money(args.planned, true);
+		if (await sharedForPersonal(ctx, space, args.month))
+			throw new ConvexError(
+				"Assign personal funding from the shared monthly budget.",
+			);
 		if (space.type !== "private" || shared.type !== "shared")
 			throw new ConvexError("Select a private and shared budget.");
 		const old = await ctx.db
@@ -160,6 +165,10 @@ export const confirm = mutation({
 				"Choose posted entries in the same month with equal and opposite amounts.",
 			);
 		const m = outgoing.date.slice(0, 7);
+		if (await sharedForPersonal(ctx, space, m))
+			throw new ConvexError(
+				"Personal funding is a budget allocation. Bank transfers do not change it.",
+			);
 		const rows = await ctx.db
 			.query("contributions")
 			.withIndex("by_shared", (q) =>

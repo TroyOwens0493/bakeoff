@@ -21,10 +21,12 @@ import type * as http from "../http.js";
 import type * as model_accounting from "../model/accounting.js";
 import type * as model_categories from "../model/categories.js";
 import type * as model_insights from "../model/insights.js";
+import type * as model_personalFunding from "../model/personalFunding.js";
 import type * as model_plans from "../model/plans.js";
 import type * as model_reporting from "../model/reporting.js";
 import type * as model_spaces from "../model/spaces.js";
 import type * as model_transactions from "../model/transactions.js";
+import type * as personalAllocations from "../personalAllocations.js";
 import type * as plaidClient from "../plaidClient.js";
 import type * as sharing from "../sharing.js";
 
@@ -48,10 +50,12 @@ declare const fullApi: ApiFromModules<{
   "model/accounting": typeof model_accounting;
   "model/categories": typeof model_categories;
   "model/insights": typeof model_insights;
+  "model/personalFunding": typeof model_personalFunding;
   "model/plans": typeof model_plans;
   "model/reporting": typeof model_reporting;
   "model/spaces": typeof model_spaces;
   "model/transactions": typeof model_transactions;
+  personalAllocations: typeof personalAllocations;
   plaidClient: typeof plaidClient;
   sharing: typeof sharing;
 }>;

@@ -11,6 +11,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { access } from "../access";
 import { funding, results } from "./accounting";
+import { sharedForPersonal } from "./personalFunding";
 
 type MonthArgs = { spaceId: Id<"spaces">; month: string };
 
@@ -23,8 +24,15 @@ export async function save(
 		revision: number;
 	},
 ) {
-	await access(ctx, args.spaceId, true);
+	const { space } = await access(ctx, args.spaceId, true);
 	month(args.month);
+	if (
+		(await sharedForPersonal(ctx, space, args.month)) &&
+		args.expectedIncome !== 0
+	)
+		throw new ConvexError(
+			"Enter planned income in the shared budget. Personal funding comes from its allocation.",
+		);
 	const old = await ctx.db
 		.query("plans")
 		.withIndex("by_month", (q) =>
@@ -85,7 +93,7 @@ export async function save(
 }
 
 export async function repeat(ctx: MutationCtx, args: MonthArgs) {
-	await access(ctx, args.spaceId, true);
+	const { space } = await access(ctx, args.spaceId, true);
 	month(args.month);
 	const destination = nextMonth(args.month);
 	const old = await ctx.db
@@ -105,7 +113,9 @@ export async function repeat(ctx: MutationCtx, args: MonthArgs) {
 	await ctx.db.insert("plans", {
 		spaceId: args.spaceId,
 		month: destination,
-		expectedIncome: old.expectedIncome,
+		expectedIncome: (await sharedForPersonal(ctx, space, destination))
+			? 0
+			: old.expectedIncome,
 		savingsTarget: old.savingsTarget,
 		limits: old.limits,
 		saved: false,
@@ -121,7 +131,7 @@ export async function review(
 		revision: number;
 	},
 ) {
-	await access(ctx, args.spaceId, true);
+	const { space } = await access(ctx, args.spaceId, true);
 	month(args.month);
 	const plan = await ctx.db
 		.query("plans")
@@ -129,7 +139,12 @@ export async function review(
 			q.eq("spaceId", args.spaceId).eq("month", args.month),
 		)
 		.unique();
-	if (!plan || !isPlanSaved(plan))
+	if (
+		!plan ||
+		!isPlanSaved(plan) ||
+		((await sharedForPersonal(ctx, space, args.month)) &&
+			plan.expectedIncome !== 0)
+	)
 		throw new ConvexError(
 			"Save this month’s budget before completing its review.",
 		);
@@ -189,7 +204,9 @@ export async function review(
 	const next = {
 		spaceId: args.spaceId,
 		month: destinationMonth,
-		expectedIncome: base.expectedIncome,
+		expectedIncome: (await sharedForPersonal(ctx, space, destinationMonth))
+			? 0
+			: base.expectedIncome,
 		savingsTarget,
 		limits: [...limits].map(([categoryId, amount]) => ({
 			categoryId,
@@ -218,7 +235,7 @@ export async function review(
 }
 
 export async function ensure(ctx: MutationCtx, args: MonthArgs) {
-	await access(ctx, args.spaceId, true);
+	const { space } = await access(ctx, args.spaceId, true);
 	month(args.month);
 	const existing = await ctx.db
 		.query("plans")
@@ -238,7 +255,9 @@ export async function ensure(ctx: MutationCtx, args: MonthArgs) {
 	await ctx.db.insert("plans", {
 		spaceId: args.spaceId,
 		month: args.month,
-		expectedIncome: previous.expectedIncome,
+		expectedIncome: (await sharedForPersonal(ctx, space, args.month))
+			? 0
+			: previous.expectedIncome,
 		savingsTarget: previous.savingsTarget,
 		limits: previous.limits,
 		saved: false,

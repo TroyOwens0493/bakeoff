@@ -133,6 +133,15 @@ export default defineSchema({
 	})
 		.index("by_space_date", ["spaceId", "date"])
 		.index("by_external", ["accountId", "externalId"]),
+	personalAllocations: defineTable({
+		privateId: v.id("spaces"),
+		sharedId: v.id("spaces"),
+		month: v.string(),
+		amount: v.number(),
+		revision: v.number(),
+	})
+		.index("by_private", ["privateId", "month"])
+		.index("by_shared", ["sharedId", "month"]),
 	contributions: defineTable({
 		privateId: v.id("spaces"),
 		sharedId: v.id("spaces"),

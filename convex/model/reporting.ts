@@ -54,7 +54,15 @@ export async function dashboard(
 		.collect();
 	return {
 		...result,
-		plan: plan ? { ...plan, saved: isPlanSaved(plan) } : null,
+		plan: plan
+			? {
+					...plan,
+					expectedIncome: result.fundedBy ? 0 : plan.expectedIncome,
+					saved:
+						isPlanSaved(plan) &&
+						(!result.fundedBy || plan.expectedIncome === 0),
+				}
+			: null,
 		categories: categories.sort((a, b) => a.order - b.order),
 		reserved,
 		available: leftovers(
@@ -64,7 +72,10 @@ export async function dashboard(
 		),
 		balance: plan
 			? planBalance(
-					plan,
+					{
+						...plan,
+						expectedIncome: result.fundedBy ? 0 : plan.expectedIncome,
+					},
 					result.funds.incoming,
 					result.funds.outgoing,
 					result.funds.carry,
