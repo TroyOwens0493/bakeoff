@@ -4,7 +4,7 @@ import { type FormEvent, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Doc, Id } from "../../convex/_generated/dataModel";
 import { cents } from "../domain/budget";
-import { amount, Modal, MoneyInput, usd } from "./ui";
+import { amount, ConfirmModal, Modal, MoneyInput, usd } from "./ui";
 import type { ViewProps } from "./view-types";
 export function TransactionsView({
 	spaceId,
@@ -229,6 +229,7 @@ function TransactionEditor({
 		],
 	);
 	const [match, setMatch] = useState("");
+	const [deleting, setDeleting] = useState(false);
 	const imports = useQuery(
 		api.budgets.transactions,
 		entry?.source === "manual"
@@ -436,15 +437,7 @@ function TransactionEditor({
 							<button
 								type="button"
 								className="danger"
-								onClick={async () => {
-									if (
-										window.confirm("Delete this manual transaction?") &&
-										(await run(() =>
-											remove({ id: entry._id, revision: entry.revision }),
-										))
-									)
-										onClose();
-								}}
+								onClick={() => setDeleting(true)}
 							>
 								Delete manual entry
 							</button>
@@ -497,6 +490,22 @@ function TransactionEditor({
 					</button>
 				</section>
 			)}
+			{deleting && entry?.source === "manual" && (
+				<ConfirmModal
+					title="Delete manual transaction"
+					confirmLabel="Delete transaction"
+					onClose={() => setDeleting(false)}
+					onConfirm={async () => {
+						const deleted = await run(() =>
+							remove({ id: entry._id, revision: entry.revision }),
+						);
+						if (deleted) onClose();
+						return deleted;
+					}}
+				>
+					<p>Delete this manual transaction?</p>
+				</ConfirmModal>
+			)}
 		</Modal>
 	);
 }
@@ -511,6 +520,7 @@ function CategoryEditor({
 	const [selected, setSelected] = useState("");
 	const [current, setCurrent] = useState<Doc<"categories"> | undefined>();
 	const [replacement, setReplacement] = useState("");
+	const [deleting, setDeleting] = useState(false);
 	return (
 		<Modal title="Manage categories" onClose={onClose}>
 			<label>
@@ -597,27 +607,39 @@ function CategoryEditor({
 						type="button"
 						className="danger"
 						disabled={!replacement}
-						onClick={async () => {
-							if (
-								window.confirm(
-									`Delete ${current.name} and reassign its records?`,
-								) &&
-								(await run(() =>
-									remove({
-										id: current._id,
-										replacementId: replacement as Id<"categories">,
-										revision: current.revision,
-									}),
-								))
-							) {
-								setSelected("");
-								setCurrent(undefined);
-							}
-						}}
+						onClick={() => setDeleting(true)}
 					>
 						Delete and reassign
 					</button>
 				</section>
+			)}
+			{deleting && current && (
+				<ConfirmModal
+					title="Delete category"
+					confirmLabel="Delete and reassign"
+					onClose={() => setDeleting(false)}
+					onConfirm={async () => {
+						const deleted = await run(() =>
+							remove({
+								id: current._id,
+								replacementId: replacement as Id<"categories">,
+								revision: current.revision,
+							}),
+						);
+						if (deleted) {
+							setSelected("");
+							setCurrent(undefined);
+							setReplacement("");
+						}
+						return deleted;
+					}}
+				>
+					<p>
+						Delete {current.name} and reassign its transactions, plan limits,
+						and carry-forward allocations to{" "}
+						{categories.find((x) => x._id === replacement)?.name}?
+					</p>
+				</ConfirmModal>
 			)}
 		</Modal>
 	);

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 export const usd = (value: number) =>
 	new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
 		value / 100,
@@ -48,7 +48,15 @@ export function Modal({
 		ref.current?.showModal();
 	}, []);
 	return (
-		<dialog ref={ref} onCancel={onClose} aria-label={title}>
+		<dialog
+			ref={ref}
+			onCancel={(e) => {
+				e.preventDefault();
+				e.stopPropagation();
+				onClose();
+			}}
+			aria-label={title}
+		>
 			<div className="modal-heading">
 				<h2>{title}</h2>
 				<button
@@ -62,5 +70,55 @@ export function Modal({
 			</div>
 			{children}
 		</dialog>
+	);
+}
+
+export function ConfirmModal({
+	title,
+	children,
+	confirmLabel,
+	onConfirm,
+	onClose,
+}: {
+	title: string;
+	children: ReactNode;
+	confirmLabel: string;
+	onConfirm: () => Promise<boolean>;
+	onClose: () => void;
+}) {
+	const [pending, setPending] = useState(false);
+	const inFlight = useRef(false);
+	return (
+		<Modal title={title} onClose={() => !inFlight.current && onClose()}>
+			{children}
+			<div className="button-row">
+				<button
+					type="button"
+					className="secondary"
+					disabled={pending}
+					onClick={onClose}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					className="danger"
+					disabled={pending}
+					onClick={async () => {
+						if (inFlight.current) return;
+						inFlight.current = true;
+						setPending(true);
+						try {
+							if (await onConfirm()) onClose();
+						} finally {
+							inFlight.current = false;
+							setPending(false);
+						}
+					}}
+				>
+					{pending ? "Please wait…" : confirmLabel}
+				</button>
+			</div>
+		</Modal>
 	);
 }

@@ -5,7 +5,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { openPlaid } from "../lib/plaid-link";
 import { ContributionsView } from "./ContributionsView";
-import { Modal } from "./ui";
+import { ConfirmModal, Modal } from "./ui";
 import type { ViewProps } from "./view-types";
 export function AccountsView({
 	spaceId,
@@ -30,7 +30,13 @@ export function AccountsView({
 	const accept = useAction(api.sharing.accept);
 	const [reviewing, setReviewing] = useState<Id<"connections"> | null>(null);
 	const [leaving, setLeaving] = useState<Id<"spaces"> | null>(null);
-	const [leavePending, setLeavePending] = useState(false);
+	const [renaming, setRenaming] = useState<
+		NonNullable<typeof accounts>[number] | null
+	>(null);
+	const [renamePending, setRenamePending] = useState(false);
+	const [disconnecting, setDisconnecting] = useState<Id<"connections"> | null>(
+		null,
+	);
 	const [moving, setMoving] = useState<
 		NonNullable<typeof accounts>[number] | null
 	>(null);
@@ -98,13 +104,7 @@ export function AccountsView({
 								type="button"
 								className="secondary"
 								disabled={!active || !a.active}
-								onClick={() => {
-									const name = window.prompt("Account name", a.name);
-									if (name)
-										void run(() =>
-											rename({ id: a._id, name, revision: a.revision }),
-										);
-								}}
+								onClick={() => setRenaming(a)}
 							>
 								Rename
 							</button>
@@ -173,17 +173,7 @@ export function AccountsView({
 								type="button"
 								className="text-button"
 								disabled={c.status === "disconnected"}
-								onClick={() => {
-									if (
-										window.confirm(
-											"Disconnect this bank? Imported history will be kept.",
-										)
-									)
-										void run(
-											() => disconnect({ id: c._id }),
-											"Disconnected. History retained.",
-										);
-								}}
+								onClick={() => setDisconnecting(c._id)}
 							>
 								Disconnect
 							</button>
@@ -308,44 +298,96 @@ export function AccountsView({
 							run={run}
 						/>
 					))}
+			{renaming && (
+				<Modal
+					title="Rename account"
+					onClose={() => !renamePending && setRenaming(null)}
+				>
+					<form
+						onSubmit={async (e) => {
+							e.preventDefault();
+							if (renamePending) return;
+							const name = String(
+								new FormData(e.currentTarget).get("name"),
+							).trim();
+							if (!name) return;
+							setRenamePending(true);
+							try {
+								if (
+									await run(
+										() =>
+											rename({
+												id: renaming._id,
+												name,
+												revision: renaming.revision,
+											}),
+										"Account renamed.",
+									)
+								)
+									setRenaming(null);
+							} finally {
+								setRenamePending(false);
+							}
+						}}
+					>
+						<label>
+							Account name
+							<input
+								name="name"
+								defaultValue={renaming.name}
+								required
+								maxLength={100}
+								disabled={renamePending}
+							/>
+						</label>
+						<div className="button-row">
+							<button
+								type="button"
+								className="secondary"
+								disabled={renamePending}
+								onClick={() => setRenaming(null)}
+							>
+								Cancel
+							</button>
+							<button type="submit" disabled={renamePending}>
+								{renamePending ? "Saving…" : "Save account name"}
+							</button>
+						</div>
+					</form>
+				</Modal>
+			)}
+			{disconnecting && (
+				<ConfirmModal
+					title="Disconnect bank"
+					confirmLabel="Disconnect bank"
+					onClose={() => setDisconnecting(null)}
+					onConfirm={() =>
+						run(
+							() => disconnect({ id: disconnecting }),
+							"Disconnected. History retained.",
+						)
+					}
+				>
+					<p>Disconnect this bank? Imported history will be kept.</p>
+				</ConfirmModal>
+			)}
 			{leaving && (
-				<Modal title="Leave shared budget" onClose={() => setLeaving(null)}>
+				<ConfirmModal
+					title="Leave shared budget"
+					confirmLabel="Leave shared budget"
+					onClose={() => setLeaving(null)}
+					onConfirm={() =>
+						run(
+							() => leave({ spaceId: leaving }),
+							"You left the shared budget.",
+						)
+					}
+				>
 					<p>
 						Your accounts return to your private budget. The other partner keeps
 						this budget. You keep read access to previously shared records.
 					</p>
-					<div className="button-row">
-						<button
-							type="button"
-							className="secondary"
-							onClick={() => setLeaving(null)}
-						>
-							Cancel
-						</button>
-						<button
-							type="button"
-							className="danger"
-							disabled={leavePending}
-							onClick={async () => {
-								if (leavePending) return;
-								setLeavePending(true);
-								try {
-									if (
-										await run(
-											() => leave({ spaceId: leaving }),
-											"You left the shared budget.",
-										)
-									)
-										setLeaving(null);
-								} finally {
-									setLeavePending(false);
-								}
-							}}
-						>
-							{leavePending ? "Leaving…" : "Leave shared budget"}
-						</button>
-					</div>
-				</Modal>
+				</ConfirmModal>
 			)}
 			{moving && (
 				<Modal title="Move account" onClose={() => setMoving(null)}>
