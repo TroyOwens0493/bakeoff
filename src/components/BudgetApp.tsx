@@ -19,6 +19,7 @@ import { cents, nextMonth } from "../domain/budget";
 import { authClient } from "../lib/auth-client";
 import { AccountsView } from "./AccountsView";
 import { ErrorBanner } from "./ErrorBanner";
+import { PersonalAllocationsView } from "./PersonalAllocationsView";
 import { SpendingChart } from "./SpendingChart";
 import { TransactionsView } from "./TransactionsView";
 import { Modal, usd } from "./ui";
@@ -35,7 +36,9 @@ const nav = [
 ] as const;
 export function BudgetApp({ home }: { home: Home }) {
 	const [selected, setSelected] = useState(
-		home.spaces.find((x) => x.active)?._id ?? home.spaces[0]._id,
+		home.spaces.find((x) => x.active && x.type === "shared")?._id ??
+			home.spaces.find((x) => x.active)?._id ??
+			home.spaces[0]._id,
 	);
 	const space = home.spaces.find((x) => x._id === selected) ?? home.spaces[0];
 	const currentMonth = new Intl.DateTimeFormat("en-CA", {
@@ -194,7 +197,12 @@ export function BudgetApp({ home }: { home: Home }) {
 					) : view === "transactions" ? (
 						<TransactionsView {...props} categories={data.categories} />
 					) : view === "budget" ? (
-						<PlanView key={`${space._id}:${month}`} {...props} data={data} />
+						<PlanView
+							key={`${space._id}:${month}`}
+							{...props}
+							data={data}
+							shared={space.type === "shared"}
+						/>
 					) : view === "review" ? (
 						<ReviewView key={`${space._id}:${month}`} {...props} data={data} />
 					) : view === "profile" ? (
@@ -242,7 +250,7 @@ function Summary({ data }: { data: Dashboard }) {
 				<strong>{usd(data.income + data.incoming)}</strong>
 				<small>
 					{usd(data.plan?.expectedIncome ?? 0)} expected income ·{" "}
-					{usd(data.funds.incoming)} planned contributions
+					{usd(data.funds.incoming)} planned budget funding
 				</small>
 			</article>
 			<article className="summary-card">
@@ -509,7 +517,8 @@ function PlanView({
 	month,
 	active,
 	run,
-}: ViewProps & { data: Dashboard }) {
+	shared,
+}: ViewProps & { data: Dashboard; shared: boolean }) {
 	const save = useMutation(api.budgets.savePlan);
 	const repeat = useMutation(api.budgets.repeatPlan);
 	const [expected, setExpected] = useState(data.plan?.expectedIncome ?? 0);
@@ -526,8 +535,9 @@ function PlanView({
 	const [formVersion, setFormVersion] = useState(0);
 	const [saving, setSaving] = useState(false);
 	const total = Object.values(limits).reduce((s, x) => s + x, 0);
+	const plannedIncome = data.fundedBy ? 0 : expected;
 	const balance =
-		expected +
+		plannedIncome +
 		data.funds.incoming +
 		data.funds.carry -
 		data.funds.outgoing -
@@ -550,7 +560,9 @@ function PlanView({
 				save({
 					spaceId,
 					month,
-					expectedIncome: cents(String(form.get("expected"))),
+					expectedIncome: data.fundedBy
+						? 0
+						: cents(String(form.get("expected"))),
 					savingsTarget: cents(String(form.get("target"))),
 					limits: data.categories.map((c) => ({
 						categoryId: c._id,
@@ -595,16 +607,23 @@ function PlanView({
 				<section className="panel">
 					<h2>Monthly spending</h2>
 					<fieldset disabled={!active || saving}>
-						<label>
-							Expected take-home income
-							<input
-								name="expected"
-								defaultValue={(expected / 100).toFixed(2)}
-								inputMode="decimal"
-								required
-								onChange={(e) => change(e.target.value, setExpected)}
-							/>
-						</label>
+						{data.fundedBy ? (
+							<p>
+								Income is planned in the shared budget. Your personal allocation
+								is {usd(data.funds.personalIncoming)} for this month.
+							</p>
+						) : (
+							<label>
+								Expected take-home income
+								<input
+									name="expected"
+									defaultValue={(expected / 100).toFixed(2)}
+									inputMode="decimal"
+									required
+									onChange={(e) => change(e.target.value, setExpected)}
+								/>
+							</label>
+						)}
 						{data.categories.map((c) => (
 							<label className="allocation-row" key={c._id}>
 								<span>{c.name}</span>
@@ -642,15 +661,15 @@ function PlanView({
 					<p className="eyebrow">THE BIG PICTURE</p>
 					<h2>Money available to plan</h2>
 					<strong className="big-number">
-						{usd(expected + data.funds.incoming + data.funds.carry)}
+						{usd(plannedIncome + data.funds.incoming + data.funds.carry)}
 					</strong>
 					<dl>
 						<div>
 							<dt>Expected income</dt>
-							<dd>{usd(expected)}</dd>
+							<dd>{usd(plannedIncome)}</dd>
 						</div>
 						<div>
-							<dt>Incoming contributions</dt>
+							<dt>Incoming budget funding</dt>
 							<dd>{usd(data.funds.incoming)}</dd>
 						</div>
 						<div>
@@ -658,7 +677,7 @@ function PlanView({
 							<dd>{usd(data.funds.carry)}</dd>
 						</div>
 						<div>
-							<dt>Outgoing contributions</dt>
+							<dt>Outgoing budget funding</dt>
 							<dd>{usd(data.funds.outgoing)}</dd>
 						</div>
 						<div>
@@ -684,6 +703,14 @@ function PlanView({
 					</button>
 				</aside>
 			</form>
+			{shared && (
+				<PersonalAllocationsView
+					sharedId={spaceId}
+					month={month}
+					active={active}
+					run={run}
+				/>
+			)}
 			<div className="button-row">
 				{data.plan && (
 					<button
