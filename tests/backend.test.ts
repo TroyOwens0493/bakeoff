@@ -225,14 +225,201 @@ async function entry(
 		edited: false,
 	}) as Promise<Id<"transactions">>;
 }
-test("private direct queries are denied to another user", async () => {
+test("private budget reads and edits are denied to another user", async () => {
 	const { db, privateId } = await fixture();
 	db.current = "bob";
-	await assert.rejects(
+	const requests = [
 		() =>
 			invoke(budgets.dashboard, db, { spaceId: privateId, month: "2026-09" }),
-		/access/,
+		() => invoke(budgets.categories, db, { spaceId: privateId }),
+		() =>
+			invoke(budgets.transactions, db, {
+				spaceId: privateId,
+				month: "2026-09",
+			}),
+		() =>
+			invoke(budgets.reports, db, {
+				spaceId: privateId,
+				from: "2026-09",
+				to: "2026-09",
+			}),
+		() => invoke(budgets.recurring, db, { spaceId: privateId }),
+		() => invoke(budgets.alerts, db, { spaceId: privateId, month: "2026-09" }),
+		() =>
+			invoke(budgets.ensureMonth, db, { spaceId: privateId, month: "2026-09" }),
+		() =>
+			invoke(budgets.setRecurring, db, {
+				spaceId: privateId,
+				merchant: "entry",
+				status: "confirmed",
+			}),
+		() =>
+			invoke(budgets.readAlert, db, {
+				spaceId: privateId,
+				key: `${privateId}:2026-09:carry`,
+			}),
+	];
+	for (const request of requests) await assert.rejects(request, /access/);
+});
+
+test("historical reports match dashboard totals for refunds, pending entries, and transfers", async () => {
+	const { db, privateId, categoryId, accountId } = await fixture();
+	await entry(db, privateId, accountId, -10000, "income");
+	await entry(db, privateId, accountId, 3000, "purchase", categoryId);
+	await entry(db, privateId, accountId, -500, "purchase", categoryId);
+	await entry(db, privateId, accountId, 2000, "transfer");
+	const pending = await entry(
+		db,
+		privateId,
+		accountId,
+		700,
+		"purchase",
+		categoryId,
 	);
+	await db.patch(pending, { pending: true });
+	const report = await invoke(budgets.reports, db, {
+		spaceId: privateId,
+		from: "2026-09",
+		to: "2026-10",
+	});
+	assert.deepEqual(report, [
+		{
+			month: "2026-09",
+			income: 10000,
+			spending: 2500,
+			savings: 7500,
+			categories: { [categoryId]: 2500 },
+		},
+		{ month: "2026-10", income: 0, spending: 0, savings: 0, categories: {} },
+	]);
+	const dashboard = await invoke(budgets.dashboard, db, {
+		spaceId: privateId,
+		month: "2026-09",
+	});
+	assert.equal(dashboard.income, report[0].income);
+	assert.equal(dashboard.spending, report[0].spending);
+	assert.equal(dashboard.savings, report[0].savings);
+	assert.equal(dashboard.pending, 700);
+});
+
+test("recurring suggestion decisions persist without creating duplicate states", async () => {
+	const { db, privateId, categoryId, accountId } = await fixture();
+	for (const date of ["2026-07-10", "2026-08-10", "2026-09-10"])
+		await entry(db, privateId, accountId, 1500, "purchase", categoryId, date);
+	const args = { spaceId: privateId };
+	const suggested = await invoke(budgets.recurring, db, args);
+	assert.deepEqual(suggested, [
+		{
+			merchant: "entry",
+			amount: 1500,
+			date: "2026-10-10",
+			status: "suggested",
+		},
+	]);
+	await invoke(budgets.setRecurring, db, {
+		...args,
+		merchant: "entry",
+		status: "confirmed",
+	});
+	assert.equal(
+		(await invoke(budgets.recurring, db, args))[0].status,
+		"confirmed",
+	);
+	await invoke(budgets.setRecurring, db, {
+		...args,
+		merchant: "entry",
+		status: "dismissed",
+	});
+	assert.equal(
+		(await invoke(budgets.recurring, db, args))[0].status,
+		"dismissed",
+	);
+	assert.equal(
+		[...db.rows.values()].filter((row) => row._id.startsWith("recurring:"))
+			.length,
+		1,
+	);
+});
+
+test("shared alerts use posted spending and keep read state separate for each partner", async () => {
+	const { db } = await fixture();
+	const spaceId = await invoke(sharing.create, db, {});
+	await db.insert("memberships", {
+		spaceId,
+		userId: "bob",
+		active: true,
+		joinedAt: Date.now(),
+	});
+	const accountId = await connectedAccount(db, spaceId);
+	const categories = await invoke(budgets.categories, db, { spaceId });
+	const categoryId = categories[0]._id;
+	await invoke(budgets.savePlan, db, {
+		spaceId,
+		month: "2026-09",
+		expectedIncome: 1000,
+		savingsTarget: 0,
+		limits: [{ categoryId, amount: 1000 }],
+		revision: 0,
+	});
+	await entry(db, spaceId, accountId, 800, "purchase", categoryId);
+	const pending = await entry(
+		db,
+		spaceId,
+		accountId,
+		500,
+		"purchase",
+		categoryId,
+	);
+	await db.patch(pending, { pending: true });
+	const args = { spaceId, month: "2026-09" };
+	const alerts = await invoke(budgets.alerts, db, args);
+	assert.deepEqual(alerts, [
+		{
+			key: `${spaceId}:2026-09:${categoryId}:near`,
+			text: `${categories[0].name}: 80% or more used`,
+			read: false,
+		},
+	]);
+	for (let i = 0; i < 2; i++)
+		await invoke(budgets.readAlert, db, { spaceId, key: alerts[0].key });
+	assert.equal((await invoke(budgets.alerts, db, args))[0].read, true);
+	assert.equal(
+		[...db.rows.values()].filter((row) => row._id.startsWith("alertReads:"))
+			.length,
+		1,
+	);
+	db.current = "bob";
+	assert.equal((await invoke(budgets.alerts, db, args))[0].read, false);
+});
+
+test("reconciliation retains manual classifications and counts only the imported entry", async () => {
+	const { db, privateId, categoryId, accountId } = await fixture();
+	const manualId = await entry(
+		db,
+		privateId,
+		accountId,
+		1000,
+		"purchase",
+		categoryId,
+	);
+	await db.patch(manualId, { note: "Weekly groceries" });
+	const importId = await entry(db, privateId, accountId, 1000, "transfer");
+	await db.patch(importId, { source: "plaid" });
+	await invoke(budgets.reconcile, db, { manualId, importId, revision: 0 });
+	const page = await invoke(budgets.transactions, db, {
+		spaceId: privateId,
+		month: "2026-09",
+	});
+	assert.equal(page.total, 1);
+	assert.equal(page.rows[0]._id, importId);
+	assert.equal(page.rows[0].note, "Weekly groceries");
+	assert.deepEqual(page.rows[0].splits, [{ categoryId, amount: 1000 }]);
+	assert.equal((await db.get(manualId))?.reconciledWith, importId);
+	const dashboard = await invoke(budgets.dashboard, db, {
+		spaceId: privateId,
+		month: "2026-09",
+	});
+	assert.equal(dashboard.spending, 1000);
 });
 test("saving budgets rejects imbalance and stale edits", async () => {
 	const { db, privateId, categoryId } = await fixture();
