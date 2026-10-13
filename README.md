@@ -1,6 +1,6 @@
 # Budget Together
 
-A responsive US-dollar budgeting app for individuals and couples. Each user has a private budget and can share one budget with one partner. Monthly plans allocate expected income, contributions, and explicit carry-forward to category limits and a savings target. The app does not move money.
+A responsive US-dollar budgeting app for individuals and couples. Each user has a private budget and can share one budget with one partner. Monthly plans allocate expected income, personal funding, and explicit carry-forward to category limits and a savings target. The app does not move money.
 
 The project uses the existing React, TanStack Start, Tailwind CSS, Convex, Better Auth, Lucide, and Biome stack. The additional `@convex-dev/better-auth` component stores authentication in Convex. Plaid and Resend use their HTTP APIs without additional SDK packages.
 
@@ -48,14 +48,28 @@ Resend sends partner invitations and password reset emails. Configure a verified
 - Shared budgets are called **Shared**. Users do not choose a name. Existing shared budgets also appear as **Shared**.
 - Bank accounts start private. Account moves apply to transactions dated from the move date onward. Previously imported records stay in their original budget; earlier private history is never shared.
 - A departing partner's accounts return to their private budget. The remaining partner keeps the shared budget active. The departing partner can read records shared before the departure and cannot edit that budget or read later transactions.
-- The app suggests equal and opposite posted bank entries for a shared contribution. The user confirms the match. Contributions affect private and shared funding equally and do not count as earned income.
+- **Shared budgets fund personal budgets**, overriding the contribution direction in the PDF. All planned income goes into the shared monthly plan. Each partner receives a monthly personal allocation from that plan. The allocation reduces shared funding and adds the same amount to personal funding at once; no bank transfer is needed. Both partners can see and edit the amounts, while personal categories, spending, and transactions stay private. Income recorded in a member's personal accounts counts in shared income totals without exposing private entries. This rule starts in the month the member joins; earlier months retain their prior accounting. Existing contribution records stay readable for historical totals.
 - **Exclusion was removed at the user's request**, overriding that feature in the PDF. Duplicate manual entries can be reconciled with bank imports instead.
-- **Draft and activation steps were removed at the user's request**, overriding those steps in the PDF. Users finish a monthly budget and choose **Save budget**. Every save requires a zero balance. A planned contribution change requires both affected budgets to be balanced and saved again.
+- **Draft and activation steps were removed at the user's request**, overriding those steps in the PDF. Users finish a monthly budget and choose **Save budget**. Every save requires a zero balance. A personal allocation change requires both affected budgets to be balanced and saved again.
 - New months start with prior limits for the user to check and save. Monthly review explicitly adds carry-forward to next month's categories or savings target. Repeated reviews replace existing reservations and adjust the destination budget by the difference, including an already saved budget; they do not change historical savings results. Existing records with the former draft/active field stay readable and move to the new saved field when updated.
 
 ## API and modules
 
 The PDF's API paths describe conceptual operations. This implementation uses authenticated Convex queries, mutations, and actions. The browser subscribes to queries for shared updates without a page refresh.
+
+`convex/budgets.ts` defines the budget API arguments and connects each operation to a plain TypeScript function in `convex/model/`. These model functions contain access checks, validation, and database operations. They use the caller's Convex context, so each mutation remains one database transaction.
+
+| Budget model | Responsibility |
+| --- | --- |
+| `spaces.ts` | Profile setup, private-budget creation, and the user's budget list |
+| `categories.ts` | Category lists, edits, and deletion with reassignment |
+| `accounting.ts` | Planned and actual funding, carry-forward funding, and monthly results |
+| `plans.ts` | Monthly plan saves, repetition, initial creation, and reviews |
+| `transactions.ts` | Transaction search, edits, deletion, splits, and reconciliation |
+| `reporting.ts` | Dashboard data and historical reports |
+| `insights.ts` | Recurring-charge suggestions, alerts, and per-user alert read state |
+
+The model modules do not register Convex API functions. `src/domain/budget.ts` contains the budget calculations that the browser and server share. Add reusable budget operations to the model modules and keep the API definitions small.
 
 | Module | Operations |
 | --- | --- |
@@ -63,7 +77,8 @@ The PDF's API paths describe conceptual operations. This implementation uses aut
 | `budgets` | Setup, dashboard, category CRUD and reassignment, budget save/repeat, transaction search/pagination/CRUD/splits, reconciliation, monthly review, reports, recurring suggestions, alerts |
 | `accounts` | Authorized account lists, names, assignment moves, connection status |
 | `sharing` | Shared-budget creation, email invitations, acceptance, revocation, leave |
-| `contributions` | Planned funding, proposed bank matches, confirmation, removal |
+| `personalAllocations` | Shared-to-personal monthly funding amounts; both partners can edit |
+| `contributions` | Legacy funding and bank matches for historical months |
 | `bank` | Link/update sessions, public-token exchange, sync, disconnect, internal imports |
 | `/bank-events` | Verified Plaid bank events |
 
