@@ -1,253 +1,120 @@
-Welcome to your new TanStack Start app!
+# Budget Together
 
-# Getting Started
+A responsive US-dollar budgeting app for individuals and couples. Each user has a private budget and can share one budget with one partner. Monthly plans allocate expected income, personal funding, and explicit carry-forward to category limits and a savings target. The app does not move money.
 
-To run this application:
+The project uses the existing React, TanStack Start, Tailwind CSS, Convex, Better Auth, Lucide, and Biome stack. The additional `@convex-dev/better-auth` component stores authentication in Convex. Plaid and Resend use their HTTP APIs without additional SDK packages.
 
-```bash
+## Development
+
+Use Node 24 or later and the pnpm version specified in package.json.
+
+```sh
 pnpm install
+cp .env.example .env.local
+pnpm exec convex dev
+```
+
+Sign in to the existing Convex **development** project. Keep `convex dev` running to generate types and sync backend changes. Set `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` in `.env.local` to the development deployment's `.cloud` and `.site` addresses. Do not use a production deployment for this branch.
+
+Set the variables described in `.env.example` on that Convex development deployment. `SITE_URL` is the app origin, usually `http://localhost:3000`. Generate a random Better Auth secret and a base64 key containing 32 random bytes for Plaid token encryption. Keep secrets in deployment environment variables. Browser variables start with `VITE_` and must not contain secrets.
+
+```sh
 pnpm dev
 ```
 
-# Building For Production
+Open http://localhost:3000. Local authentication also accepts http://127.0.0.1:3000 and http://[::1]:3000 on the same port. Create an account and private budget. Connect a bank, add a monthly plan, and optionally create a shared budget and invite a partner.
 
-To build this application for production:
+`pnpm dev` stops with an error if port `3000` is already in use. It does not switch to a different port. If the app is already running, use that server.
 
-```bash
+If your SSH tunnel or a second development server uses a different browser address or port, set `AUTH_TRUSTED_ORIGINS` on the same Convex development deployment. This is a comma-separated list of extra addresses. For example, to accept http://localhost:3001 as well as http://localhost:3000:
+
+```sh
+pnpm exec convex env set AUTH_TRUSTED_ORIGINS 'http://localhost:3001'
+pnpm exec convex dev --once
+```
+
+Use the address shown in the browser, including its protocol and port. Each configured loopback address also accepts `localhost`, `127.0.0.1`, and `[::1]` with the same protocol and port. Other addresses must be listed explicitly. Hosted deployments accept only `SITE_URL` and any explicitly configured extra origins. Put this setting on Convex; `.env.local` alone does not configure backend authentication.
+
+## Netlify sandbox deployment
+
+The sandbox app is hosted at https://budget-together-sandbox.netlify.app. Netlify builds and deploys the app when changes are pushed to `main` in `TroyOwens0493/budgetTogether` on GitHub. Development work stays on `dev` and is merged into `main` for deployment.
+
+`netlify.toml` sets the build command to `pnpm build`, the publish directory to `dist`, Node to version 24, and `NITRO_PRESET` to `netlify`. Nitro builds the server function for page rendering and `/api/auth/*`. Deploy the server function with the static files.
+
+Netlify uses `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` from `.env.local` for both builds and server functions. Plaid secrets stay on the existing Convex development deployment. The Plaid client uses Sandbox.
+
+On Convex, `SITE_URL` is the Netlify app address. `AUTH_TRUSTED_ORIGINS` also accepts the local development addresses on ports 3000 and 3001. Keep these addresses when you change the hosted address.
+
+## Bank connectivity and email
+
+This branch uses **Plaid Sandbox only**. It loads Plaid Link from Plaid's hosted script, exchanges public tokens on the backend, encrypts access tokens with AES-GCM, and imports Transactions through the cursor-based sync API. Only checking, savings, and credit card accounts are supported. Sandbox test credentials are documented at https://plaid.com/docs/sandbox/test-credentials/.
+
+The bank event endpoint is `https://<development-deployment>.convex.site/bank-events`. Requests require Plaid's ES256 signature, a recent timestamp, and a matching SHA-256 request-body hash. Bank events trigger imports. A six-hour scheduled job retries active connections. Sync errors retain imported history, show the last successful import, and provide reconnect controls. Disconnecting removes the Plaid Item and retains app history.
+
+Resend sends partner invitations and password reset emails. Configure a verified sender domain and `RESEND_FROM`. Invitation delivery status appears in account settings; a failed invitation can be revoked and replaced. Invitations expire after seven days, require the recipient's email address, and become membership only after acceptance. Reset links use Better Auth's expiration and single-use token handling.
+
+## Agreed product choices
+
+- Shared budgets are called **Shared**. Users do not choose a name. Existing shared budgets also appear as **Shared**.
+- Bank accounts start private. Account moves apply to transactions dated from the move date onward. Previously imported records stay in their original budget; earlier private history is never shared.
+- A departing partner's accounts return to their private budget. The remaining partner keeps the shared budget active. The departing partner can read records shared before the departure and cannot edit that budget or read later transactions.
+- **Shared budgets fund personal budgets**, overriding the contribution direction in the PDF. All planned income goes into the shared monthly plan. Each partner receives a monthly personal allocation from that plan. The allocation reduces shared funding and adds the same amount to personal funding at once; no bank transfer is needed. Both partners can see and edit the amounts, while personal categories, spending, and transactions stay private. Income recorded in a member's personal accounts counts in shared income totals without exposing private entries. This rule starts in the month the member joins; earlier months retain their prior accounting. Existing contribution records stay readable for historical totals.
+- **Exclusion was removed at the user's request**, overriding that feature in the PDF. Duplicate manual entries can be reconciled with bank imports instead.
+- **Draft and activation steps were removed at the user's request**, overriding those steps in the PDF. Users finish a monthly budget and choose **Save budget**. Every save requires a zero balance. A personal allocation change requires both affected budgets to be balanced and saved again.
+- New months start with prior limits for the user to check and save. Monthly review explicitly adds carry-forward to next month's categories or savings target. Repeated reviews replace existing reservations and adjust the destination budget by the difference, including an already saved budget; they do not change historical savings results. Existing records with the former draft/active field stay readable and move to the new saved field when updated.
+
+## API and modules
+
+The PDF's API paths describe conceptual operations. This implementation uses authenticated Convex queries, mutations, and actions. The browser subscribes to queries for shared updates without a page refresh.
+
+`convex/budgets.ts` defines the budget API arguments and connects each operation to a plain TypeScript function in `convex/model/`. These model functions contain access checks, validation, and database operations. They use the caller's Convex context, so each mutation remains one database transaction.
+
+| Budget model | Responsibility |
+| --- | --- |
+| `spaces.ts` | Profile setup, private-budget creation, and the user's budget list |
+| `categories.ts` | Category lists, edits, and deletion with reassignment |
+| `accounting.ts` | Planned and actual funding, carry-forward funding, and monthly results |
+| `plans.ts` | Monthly plan saves, repetition, initial creation, and reviews |
+| `transactions.ts` | Transaction search, edits, deletion, splits, and reconciliation |
+| `reporting.ts` | Dashboard data and historical reports |
+| `insights.ts` | Recurring-charge suggestions, alerts, and per-user alert read state |
+
+The model modules do not register Convex API functions. `src/domain/budget.ts` contains the budget calculations that the browser and server share. Add reusable budget operations to the model modules and keep the API definitions small.
+
+| Module | Operations |
+| --- | --- |
+| `auth` and `/api/auth/*` | Registration, sign-in/out, password reset, profile and password changes through Better Auth |
+| `budgets` | Setup, dashboard, category CRUD and reassignment, budget save/repeat, transaction search/pagination/CRUD/splits, reconciliation, monthly review, reports, recurring suggestions, alerts |
+| `accounts` | Authorized account lists, names, assignment moves, connection status |
+| `sharing` | Shared-budget creation, email invitations, acceptance, revocation, leave |
+| `personalAllocations` | Shared-to-personal monthly funding amounts; both partners can edit |
+| `contributions` | Legacy funding and bank matches for historical months |
+| `bank` | Link/update sessions, public-token exchange, sync, disconnect, internal imports |
+| `/bank-events` | Verified Plaid bank events |
+
+All money is stored as integer cents. Imported amounts use positive values for purchases/outflows and negative values for income/refunds. Refunds reduce spending. Pending entries are shown separately; posted entries replace pending ones without double counting. Transfers and credit card payments are omitted from income and spending. Splits must equal the transaction amount and use categories in the same budget.
+
+Private access is checked in backend requests as well as UI controls. Mutations use revision numbers to reject outdated edits. The UI reports the conflict; reopening the editor loads current values. Categories can be deleted only with a replacement category. Bank entries retain bank-controlled amounts/dates; only manual entries can be deleted.
+
+## Validation
+
+```sh
+pnpm test
+pnpm typecheck
+pnpm check
 pnpm build
 ```
 
-## Styling
+Tests use Node's built-in test runner. Accounting tests cover cents, balance, refunds, transfers, pending entries, splits, carry-forward, and recurring estimates. Backend tests exercise the actual query/mutation handlers against an in-memory database with stubbed authentication. They check direct private access, stale edits, repeated reviews, account moves, departure cutoffs, contribution matches, and import idempotency. They do not replace live Convex, Plaid, or Resend integration tests.
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
+## Current verification limits
 
-### Removing Tailwind CSS
+The backend has been deployed to the configured Convex development deployment, and its API declarations have been regenerated. Budget edits have been tested in the authenticated UI, including repeated saves and persistence after a page reload. Keep `pnpm exec convex dev` running with `pnpm dev` so backend requests stay in sync with the UI. To sync the backend once, run `pnpm exec convex dev --once`. Registration, reset emails, partner emails, Plaid Link/imports, and two-browser collaboration still need live integration testing.
 
-If you prefer not to use Tailwind CSS:
+Persistent Plaid account identifiers prevent duplicate connections where Plaid provides them. When no persistent ID is available, a match on bank, account type, and last four digits pauses the new connection. The user must identify it as the same account (keep the existing import) or a different account (import it). This check includes the current partner's accounts without returning their private account details. Imports, webhooks, and scheduled sync cannot bypass a pending review.
 
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Remove `@tailwindcss/vite` and `tailwindcss` from `package.json`
+Transaction pages return a bounded page, but their backend filtering currently reads the selected month's records. Very large monthly histories and initial Plaid import batches will need bounded server queries and chunked sync staging before production use. Recurring suggestions estimate monthly charges from three similar posted entries; estimates are not bill reminders. This branch is not configured for Plaid Production.
 
-## Linting & Formatting
+## Project workflow
 
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
-
-
-```bash
-pnpm lint
-pnpm format
-pnpm check
-```
-
-
-## Deploy to Vercel
-
-1. Push this repo to GitHub, GitLab, or Bitbucket
-2. In Vercel, choose **Add New > Project** and import the repo
-3. Keep the detected TanStack Start framework settings
-4. Add production values from `.env.example` under **Settings > Environment Variables**
-5. Deploy
-
-Vercel runs the build script and deploys Nitro's output as Vercel Functions and
-static assets. The included `vercel.json` makes framework detection explicit.
-
-Variables prefixed with `VITE_` are included in the browser bundle. Keep secrets
-unprefixed so they remain server-only.
-
-
-## Setting up Convex
-
-- Set the `VITE_CONVEX_URL` and `CONVEX_DEPLOYMENT` environment variables in your `.env.local`. (Or run `pnpm exec convex init` to set them automatically.)
-- Run `pnpm exec convex dev` to start the Convex server.
-
-
-## Setting up Better Auth
-
-1. Generate and set the `BETTER_AUTH_SECRET` environment variable in your `.env.local`:
-
-   ```bash
-   pnpm dlx @better-auth/cli secret
-   ```
-
-2. Visit the [Better Auth documentation](https://www.better-auth.com) to unlock the full potential of authentication in your app.
-
-### Adding a Database (Optional)
-
-Better Auth can work in stateless mode, but to persist user data, add a database:
-
-```typescript
-// src/lib/auth.ts
-import { betterAuth } from "better-auth";
-import { Pool } from "pg";
-
-export const auth = betterAuth({
-  database: new Pool({
-    connectionString: process.env.DATABASE_URL,
-  }),
-  // ... rest of config
-});
-```
-
-Then run migrations:
-
-```bash
-pnpm dlx @better-auth/cli migrate
-```
-
-
-
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+Work is on the `dev` branch. Team membership and project tracking are not yet configured in this repo. Add confirmed team members, sprint goals, and retrospective notes when the team and tracking tool are chosen. Future work includes live acceptance testing, production bank rollout, and larger-history query/import scaling. Investment tracking, payments, groups larger than two, non-US banks, other currencies, reminders, offline support, and subscription billing remain outside scope.

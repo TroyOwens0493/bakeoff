@@ -17,11 +17,11 @@
 | Category spending | Counted spending for a category. Refunds reduce it. Pending charges are shown separately from finalized totals. |
 | Category balance | Category limit minus counted category spending. A negative balance means overspending. |
 | Savings target | One planned savings amount for a budget space and month. It is not a bank balance or a money transfer. |
-| Actual savings | Actual income plus actual incoming contributions, minus actual outgoing contributions and actual spending. This is a monthly result. |
-| Shared contribution | Funding from a private budget to a shared budget. The private outflow and shared inflow have the same amount. Planned amounts and matched actual transfers are separate. |
-| Transfer | Money moved between accounts. It is neither a purchase nor earned income. A shared contribution also changes funding between budgets. |
+| Actual savings | Actual income plus incoming personal allocations, minus outgoing personal allocations and actual spending. Legacy contributions apply to historical months. This is a monthly result. |
+| Personal allocation | A monthly amount assigned from a shared budget to one member's private budget. It reduces shared funding and adds equal private funding at once, without a bank transfer. Both partners can see the amount; private spending and transactions remain owner-only. |
+| Shared contribution | Legacy funding from a private budget to a shared budget, kept for historical records. Planned amounts and matched actual transfers are separate. |
+| Transfer | Money moved between accounts. It is neither a purchase nor earned income. Personal allocations change budget funding without a transfer; legacy shared contributions used matched transfers. |
 | Split | Parts of one transaction assigned to categories. The parts must total the transaction amount. |
-| Exclusion | A transaction flag that removes the transaction from counted budget totals. The precise rules for each transaction type remain to be defined. |
 | Available leftovers | Actual monthly savings above the source month's savings target, with a minimum of zero. Existing carry-forward allocations reduce the amount still available to assign. |
 | Carry-forward | An explicit allocation from a source month's savings above its target to the next month's categories or savings target. It is a separate funding source. |
 | Reserved funds | Money allocated from a source month for a destination month. It must stay separate from retained savings. |
