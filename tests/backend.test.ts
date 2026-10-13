@@ -402,7 +402,7 @@ test("existing budget records remain readable and migrate on save", async () => 
 });
 test("planned contributions can change after saving and both budgets must be saved again", async () => {
 	const { db, privateId, categoryId } = await fixture();
-	const sharedId = await invoke(sharing.create, db, { name: "Together" });
+	const sharedId = await invoke(sharing.create, db, {});
 	const personal = {
 		spaceId: privateId,
 		month: "2026-09",
@@ -479,7 +479,7 @@ test("planned contributions can change after saving and both budgets must be sav
 });
 test("sharing an account preserves private history and leaving limits future reads", async () => {
 	const { db, privateId, accountId } = await fixture();
-	const sharedId = await invoke(sharing.create, db, { name: "Together" });
+	const sharedId = await invoke(sharing.create, db, {});
 	const before = await entry(db, privateId, accountId, 100, "transfer");
 	await invoke(accounts.move, db, {
 		id: accountId,
@@ -512,7 +512,7 @@ test("sharing an account preserves private history and leaving limits future rea
 });
 test("contribution matches cancel across budgets and stop counting when a bank correction invalidates them", async () => {
 	const { db, privateId, accountId } = await fixture();
-	const sharedId = await invoke(sharing.create, db, { name: "Together" });
+	const sharedId = await invoke(sharing.create, db, {});
 	const sharedAccount = await connectedAccount(db, sharedId, "Shared checking");
 	const outId = await entry(db, privateId, accountId, 30000, "transfer");
 	const inId = await entry(db, sharedId, sharedAccount, -30000, "income");
@@ -775,7 +775,7 @@ test("possible duplicates pause imports and require an explicit same or differen
 });
 test("partner duplicate checks do not expose private names and preserve other selected accounts", async () => {
 	const { db, privateId } = await fixture();
-	const sharedId = await invoke(sharing.create, db, { name: "Together" });
+	const sharedId = await invoke(sharing.create, db, {});
 	await db.insert("memberships", {
 		spaceId: sharedId,
 		userId: "bob",

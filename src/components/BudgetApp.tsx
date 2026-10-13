@@ -354,7 +354,7 @@ function Overview({
 									<div className="progress-track">
 										<div
 											style={{
-												width: `${limit ? Math.max(0, Math.min(100, (used / limit) * 100)) : used > 0 ? 100 : 0}%`,
+												width: `${limit > 0 ? Math.max(0, Math.min(100, (left / limit) * 100)) : left > 0 ? 100 : 0}%`,
 												background: c.color,
 											}}
 										/>

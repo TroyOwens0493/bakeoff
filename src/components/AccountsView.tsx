@@ -33,6 +33,9 @@ export function AccountsView({
 		NonNullable<typeof accounts>[number] | null
 	>(null);
 	const space = home.spaces.find((x) => x._id === spaceId)!;
+	const hasSharedBudget = home.spaces.some(
+		(x) => x.type === "shared" && x.active,
+	);
 	const inviteToken =
 		typeof window === "undefined"
 			? null
@@ -186,135 +189,120 @@ export function AccountsView({
 				))}
 				{!connections?.length && <p>No bank connections yet.</p>}
 			</section>
-			<section className="panel narrow">
-				<h2>Your shared budget</h2>
-				{inviteToken && (
-					<div className="banner">
-						<p>
-							You have an invitation. Accept it with the email address that
-							received the invitation.
-						</p>
-						<button
-							type="button"
-							onClick={() =>
-								run(async () => {
-									await accept({ token: inviteToken });
-									window.history.replaceState(null, "", "/");
-								}, "Invitation accepted.")
-							}
-						>
-							Accept invitation
-						</button>
-					</div>
-				)}
-				{space.type === "private" ? (
-					<form
-						onSubmit={(e) => {
-							e.preventDefault();
-							const data = new FormData(e.currentTarget);
-							void run(
-								() => create({ name: String(data.get("name")) }),
-								"Shared budget created. Select it to invite your partner.",
-							);
-						}}
-					>
-						<p>
-							You can share one budget with one partner. Each of you has equal
-							control. Your private budget remains separate.
-						</p>
-						<label>
-							Shared budget name
-							<input
-								name="name"
-								defaultValue="Our budget"
-								required
-								maxLength={100}
-							/>
-						</label>
-						<button
-							type="submit"
-							disabled={home.spaces.some(
-								(x) => x.type === "shared" && x.active,
-							)}
-						>
-							Create shared budget
-						</button>
-					</form>
-				) : (
-					<>
-						{active && (
+			{(space.type === "shared" || !hasSharedBudget) && (
+				<section className="panel narrow">
+					<h2>Your shared budget</h2>
+					{inviteToken && (
+						<div className="banner">
+							<p>
+								You have an invitation. Accept it with the email address that
+								received the invitation.
+							</p>
 							<button
 								type="button"
-								className="danger"
-								onClick={() => {
-									if (
-										window.confirm(
-											"Leave this shared budget? Your accounts return to your private budget. The other partner keeps this budget. You keep read access to previously shared records.",
-										)
-									)
-										void run(
-											() => leave({ spaceId }),
-											"You left the shared budget.",
-										);
-								}}
+								onClick={() =>
+									run(async () => {
+										await accept({ token: inviteToken });
+										window.history.replaceState(null, "", "/");
+									}, "Invitation accepted.")
+								}
 							>
-								Leave shared budget
+								Accept invitation
 							</button>
-						)}
-						<p>
-							{status?.members
-								.map((x) => `${x.name}${x.active ? "" : " (left)"}`)
-								.join(" & ")}
-						</p>
+						</div>
+					)}
+					{space.type === "private" ? (
 						<form
 							onSubmit={(e) => {
 								e.preventDefault();
-								const data = new FormData(e.currentTarget);
 								void run(
-									() => invite({ spaceId, email: String(data.get("email")) }),
-									"Invitation queued for email delivery.",
+									() => create({}),
+									"Shared budget created. Select it to invite your partner.",
 								);
 							}}
 						>
-							<label>
-								Partner’s email
-								<input name="email" type="email" required />
-							</label>
-							<button
-								type="submit"
-								disabled={
-									!active ||
-									(status?.members.filter((x) => x.active).length ?? 0) >= 2
-								}
-							>
-								Send invitation
-							</button>
+							<p>
+								You can share one budget with one partner. Each of you has equal
+								control. Your private budget remains separate.
+							</p>
+							<button type="submit">Create shared budget</button>
 						</form>
-						{status?.invitations.map((x) => (
-							<div className="alert-row" key={x._id}>
-								<span>
-									{x.email}
-									<small>
-										{x.status} · email {x.delivery} · expires{" "}
-										{new Date(x.expiresAt).toLocaleDateString()}
-									</small>
-								</span>
-								{x.status === "pending" && (
-									<button
-										type="button"
-										className="text-button"
-										onClick={() =>
-											run(() => revoke({ id: x._id }), "Invitation revoked.")
-										}
-									>
-										Revoke
-									</button>
-								)}
-							</div>
-						))}
-					</>
-				)}
-			</section>
+					) : (
+						<>
+							{active && (
+								<button
+									type="button"
+									className="danger"
+									onClick={() => {
+										if (
+											window.confirm(
+												"Leave this shared budget? Your accounts return to your private budget. The other partner keeps this budget. You keep read access to previously shared records.",
+											)
+										)
+											void run(
+												() => leave({ spaceId }),
+												"You left the shared budget.",
+											);
+									}}
+								>
+									Leave shared budget
+								</button>
+							)}
+							<p>
+								{status?.members
+									.map((x) => `${x.name}${x.active ? "" : " (left)"}`)
+									.join(" & ")}
+							</p>
+							<form
+								onSubmit={(e) => {
+									e.preventDefault();
+									const data = new FormData(e.currentTarget);
+									void run(
+										() => invite({ spaceId, email: String(data.get("email")) }),
+										"Invitation queued for email delivery.",
+									);
+								}}
+							>
+								<label>
+									Partner’s email
+									<input name="email" type="email" required />
+								</label>
+								<button
+									type="submit"
+									disabled={
+										!active ||
+										(status?.members.filter((x) => x.active).length ?? 0) >= 2
+									}
+								>
+									Send invitation
+								</button>
+							</form>
+							{status?.invitations.map((x) => (
+								<div className="alert-row" key={x._id}>
+									<span>
+										{x.email}
+										<small>
+											{x.status} · email {x.delivery} · expires{" "}
+											{new Date(x.expiresAt).toLocaleDateString()}
+										</small>
+									</span>
+									{x.status === "pending" && (
+										<button
+											type="button"
+											className="text-button"
+											onClick={() =>
+												run(() => revoke({ id: x._id }), "Invitation revoked.")
+											}
+										>
+											Revoke
+										</button>
+									)}
+								</div>
+							))}
+						</>
+					)}
+				</section>
+			)}
 			{space.type === "private" &&
 				home.spaces
 					.filter((x) => x.type === "shared" && x.active)

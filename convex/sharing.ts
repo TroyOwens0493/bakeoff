@@ -8,7 +8,7 @@ import {
 	mutation,
 	query,
 } from "./_generated/server";
-import { access, label, privateSpace, user } from "./access";
+import { access, privateSpace, user } from "./access";
 import { sendEmail } from "./email";
 import { hash } from "./plaidClient";
 
@@ -23,8 +23,8 @@ async function activeShared(ctx: Parameters<typeof user>[0], userId: string) {
 	return null;
 }
 export const create = mutation({
-	args: { name: v.string() },
-	handler: async (ctx, args) => {
+	args: {},
+	handler: async (ctx) => {
 		const current = await user(ctx);
 		if (await activeShared(ctx, current._id))
 			throw new ConvexError("You already have an active shared budget.");
@@ -34,7 +34,7 @@ export const create = mutation({
 			.unique();
 		if (!profile) throw new ConvexError("Complete account setup first.");
 		const spaceId = await ctx.db.insert("spaces", {
-			name: label(args.name),
+			name: "Shared",
 			type: "shared",
 			ownerId: current._id,
 			timeZone: profile.timeZone,

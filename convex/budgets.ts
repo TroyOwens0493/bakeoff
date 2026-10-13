@@ -96,10 +96,14 @@ export const home = query({
 			.withIndex("by_user", (q) => q.eq("userId", current._id))
 			.collect();
 		const spaces = await Promise.all(
-			memberships.map(async (m) => ({
-				...(await ctx.db.get(m.spaceId))!,
-				active: m.active,
-			})),
+			memberships.map(async (m) => {
+				const space = (await ctx.db.get(m.spaceId))!;
+				return {
+					...space,
+					name: space.type === "shared" ? "Shared" : space.name,
+					active: m.active,
+				};
+			}),
 		);
 		return {
 			profile,

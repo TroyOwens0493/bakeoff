@@ -45,6 +45,7 @@ Resend sends partner invitations and password reset emails. Configure a verified
 
 ## Agreed product choices
 
+- Shared budgets are called **Shared**. Users do not choose a name. Existing shared budgets also appear as **Shared**.
 - Bank accounts start private. Account moves apply to transactions dated from the move date onward. Previously imported records stay in their original budget; earlier private history is never shared.
 - A departing partner's accounts return to their private budget. The remaining partner keeps the shared budget active. The departing partner can read records shared before the departure and cannot edit that budget or read later transactions.
 - The app suggests equal and opposite posted bank entries for a shared contribution. The user confirms the match. Contributions affect private and shared funding equally and do not count as earned income.
