@@ -35,6 +35,16 @@ pnpm exec convex dev --once
 
 Use the address shown in the browser, including its protocol and port. Each configured loopback address also accepts `localhost`, `127.0.0.1`, and `[::1]` with the same protocol and port. Other addresses must be listed explicitly. Hosted deployments accept only `SITE_URL` and any explicitly configured extra origins. Put this setting on Convex; `.env.local` alone does not configure backend authentication.
 
+## Netlify sandbox deployment
+
+The sandbox app is hosted at https://budget-together-sandbox.netlify.app. Netlify builds and deploys the app when changes are pushed to `main` in `TroyOwens0493/budgetTogether` on GitHub. Development work stays on `dev` and is merged into `main` for deployment.
+
+`netlify.toml` sets the build command to `pnpm build`, the publish directory to `dist`, Node to version 24, and `NITRO_PRESET` to `netlify`. Nitro builds the server function for page rendering and `/api/auth/*`. Deploy the server function with the static files.
+
+Netlify uses `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` from `.env.local` for both builds and server functions. Plaid secrets stay on the existing Convex development deployment. The Plaid client uses Sandbox.
+
+On Convex, `SITE_URL` is the Netlify app address. `AUTH_TRUSTED_ORIGINS` also accepts the local development addresses on ports 3000 and 3001. Keep these addresses when you change the hosted address.
+
 ## Bank connectivity and email
 
 This branch uses **Plaid Sandbox only**. It loads Plaid Link from Plaid's hosted script, exchanges public tokens on the backend, encrypts access tokens with AES-GCM, and imports Transactions through the cursor-based sync API. Only checking, savings, and credit card accounts are supported. Sandbox test credentials are documented at https://plaid.com/docs/sandbox/test-credentials/.
