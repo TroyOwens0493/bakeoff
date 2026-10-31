@@ -322,7 +322,10 @@ async function authenticate(form: HTMLFormElement) {
 			true,
 		);
 	} else {
-		await refresh(new URL(location.href), true);
+		const destination = new URL(location.href);
+		for (const key of ["auth", "token", "passwordUpdated"])
+			destination.searchParams.delete(key);
+		await refresh(destination, true);
 	}
 }
 
@@ -473,7 +476,10 @@ document.addEventListener("click", async (event) => {
 			if (result.error) throw new Error(result.error.message);
 			for (const form of $$("form[data-dirty]"))
 				form.removeAttribute("data-dirty");
-			await refresh(new URL(location.href), true);
+			const destination = new URL("/?auth=login", location.origin);
+			const invite = new URL(location.href).searchParams.get("invite");
+			if (invite) destination.searchParams.set("invite", invite);
+			await refresh(destination, true);
 			return;
 		}
 		if (element.hasAttribute("data-bank-link")) {
