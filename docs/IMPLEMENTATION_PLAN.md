@@ -37,7 +37,7 @@ The prior implementation used request-time page rendering. This implementation e
 - [x] Retain bank linking, account moves, invitations, partner funding, reports, alerts, and monthly review.
 - [x] Keep live updates, loading states, retry controls, conflict notices, and unsaved form protection.
 - [x] Test static output, authentication, core budget workflows, validation, mobile layout, and keyboard controls.
-- [ ] Deploy `SSR` and verify the public site.
+- [x] Deploy `SSR` and verify the public site.
 - [x] Record results and known limits in the course checklist.
 - [ ] Student: build one additional feature with AI used for guidance only.
 - [ ] Student: write the personal reflection and complete the course evaluation form.

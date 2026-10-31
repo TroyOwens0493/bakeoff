@@ -9,7 +9,7 @@ The technical implementation targets the course's **static rendering** architect
 | Explore a different architecture | Astro static HTML replaces request-time page rendering | Implemented |
 | Use an allowed framework in static mode | `astro.config.mjs`: `output: "static"`; both SSR adapters removed | Implemented |
 | Use a database of choice | Separate Convex project and authenticated browser queries | Implemented |
-| Sign up, log in, log out | Native Astro auth templates, browser script, Better Auth API | Implemented; fixture browser checks passed |
+| Sign up, log in, log out | Native Astro auth templates, browser script, Better Auth API | Implemented; live registration, login, logout, and persistence checks passed |
 | Core project feature | Balanced budgets, category management, transactions, and monthly review | Implemented; original backend checks retained |
 | Responsive desktop and mobile UI | Original responsive CSS, native labeled controls | Fixture browser checks passed |
 | Basic error handling and validation | Loading/retry states, integer cents, zero-balance checks, backend access/revision validation | Implemented and unit tested |
@@ -29,7 +29,7 @@ The technical implementation targets the course's **static rendering** architect
 - [x] Browser form and core-workflow checks against an isolated fixture
 - [x] Desktop and 375-pixel mobile layout checks
 - [x] Netlify function bundle check
-- [ ] Static deployment and live auth checks
+- [x] Static deployment and live auth checks
 
 ## Architecture evidence
 
@@ -52,3 +52,17 @@ Plaid uses Sandbox. Resend credentials are not configured, so password reset and
 - Netlify's production build bundled only the `auth` function.
 - Isolated browser checks exercised auth, core forms, exact-cent payloads, revisions, live updates, keyboard controls, and desktop/mobile layouts. They found a Back-navigation issue with dirty forms. A confirmation guard was added before release.
 - The local build-size measurement is recorded separately, with its date, environment, and commit. It is a single sample, not a controlled stack comparison.
+
+## Hosted release evidence — October 31, 2026
+
+The static release was verified on https://bakeoff-troyowens.netlify.app at code commit `a86b14aec3d7e0dd827622aa141a5d5cc925d07e`.
+
+- Registration opened setup; setup persisted after a reload.
+- The setup-page sign-out button opened the login form. Login returned to setup. A second logout succeeded.
+- Invalid credentials produced a useful error and the expected HTTP 401 response.
+- Authenticated and public requests received identical static HTML. The HTML included templates and no private snapshot or test email.
+- The site deployed one backend function, `auth`. It did not deploy an Astro page-rendering function.
+- Login and setup fit desktop and 375-pixel widths, and keyboard focus reached visible controls.
+- The temporary test accounts were signed out and removed. No test budget or profile was created on the hosted database.
+
+The remaining unfinished tasks are the student's additional feature, personal reflection/comparison, and external course evaluation form.
