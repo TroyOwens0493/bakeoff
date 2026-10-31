@@ -10,12 +10,15 @@
 		"includes": [
 			"**/src/**/*",
 			"**/.vscode/**/*",
-			"**/index.html",
 			"**/convex/**/*",
 			"!**/convex/_generated",
 			"**/tests/**/*",
 			"**/astro.config.mjs",
-			"!**/*.astro"
+			"!**/*.astro",
+			"**/server/**/*.ts",
+			"**/netlify/functions/**/*.mts",
+			"**/scripts/**/*.mjs",
+			"!**/dist"
 		]
 	},
 	"formatter": {

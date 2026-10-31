@@ -1,25 +1,18 @@
 ---
-import { type PageData, pageLink, usd } from "../lib/page-data";
 import Money from "./Money.astro";
 import AllocationRow from "./AllocationRow.astro";
-import Action from "./Action.astro";
-interface Props {page: PageData;}
-const {page}=Astro.props;
-const entry=page.entry;
-const categories=page.dashboard!.categories;
-const imported=entry?.source==="plaid";
-const kind=entry?.kind??"purchase";
 ---
-<section class="panel editor" aria-label={entry?"Transaction details":"Add a transaction"}><div class="section-heading"><h2>{entry?"Transaction details":"Add a transaction"}</h2><a href={pageLink(Astro.url,{edit:null})}>Close</a></div>
-	<form data-op="budgets:saveTransaction" data-transform="transaction" data-args={JSON.stringify({spaceId:page.space!._id,...(entry?{id:entry._id}:{}),revision:entry?.revision??0,...(imported?{pending:entry.pending}:{})})}><fieldset disabled={!page.space!.active}>
-		<label>Account<select name="accountId" required disabled={Boolean(entry)}>{page.accounts?.filter(a=>a.active||a._id===entry?.accountId).map(a=><option value={a._id} selected={entry?.accountId===a._id}>{a.name}</option>)}</select>{entry&&<input type="hidden" name="accountId" value={entry.accountId}/>}</label>
-		{!entry&&!page.accounts?.some(a=>a.active)&&<p>Connect a bank in Accounts & settings first.</p>}
-		<label>Description<input name="description" value={entry?.description??""} required maxlength="200"/></label><Money name="amount" value={entry?.amount} readonly={imported} label="Amount (positive for outflow; negative for income or refund)"/>
-		<label>Date<input name="date" type="date" value={entry?.date??`${page.month}-01`} required readonly={imported}/></label>{imported&&<p class="muted">Imported amount, date and pending status are set by the bank. Bank amount: {usd(entry.amount)}.</p>}
-		<label>Classification<select name="kind" data-classification><option value="purchase" selected={kind==="purchase"}>Purchase or refund</option><option value="income" selected={kind==="income"}>Income</option><option value="transfer" selected={kind==="transfer"}>Transfer or credit card payment</option></select></label>
-		<section data-splits hidden={kind!=="purchase"}><h3>Category splits</h3><div data-rows>{entry?.splits.length?entry.splits.map(s=><AllocationRow categories={categories} split categoryId={s.categoryId} value={s.amount}/>):<AllocationRow categories={categories} split/>}</div><template data-row-template><AllocationRow categories={categories} split/></template><button type="button" class="secondary" data-add-row>Add split</button><p class="muted">Split amounts must total the transaction amount, including its sign.</p></section>
-		<label>Note<textarea name="note" maxlength="2000">{entry?.note??""}</textarea></label>{!imported&&<label class="checkbox"><input name="pending" type="checkbox" checked={entry?.pending}/>Pending</label>}
-		<div class="button-row"><button type="submit">Save transaction</button>{entry?.source==="manual"&&<Action op="budgets:deleteTransaction" args={{id:entry._id,revision:entry.revision}} confirm="Delete this manual transaction?" class="danger">Delete manual entry</Action>}</div><p data-message role="alert"></p>
-	</fieldset></form>
-	{entry?.source==="manual"&&page.space!.active&&<form class="reconcile" data-op="budgets:reconcile" data-args={JSON.stringify({manualId:entry._id,revision:entry.revision})}><h3>Match an imported entry</h3><p>Keep the imported entry and apply this manual entry’s categories and note. The manual entry will stop counting.</p><label>Imported transaction<select name="importId" required><option value="">Choose a matching entry</option>{page.imports?.rows.filter(x=>x.source==="plaid"&&x.amount===entry.amount).map(x=><option value={x._id}>{x.date} · {x.description} · {usd(x.amount)}</option>)}</select></label><button type="submit">Match entries</button><p data-message role="alert"></p></form>}
+<section class="panel editor" aria-label="Transaction editor">
+ <div class="section-heading"><h2 data-text="title">Transaction details</h2><a data-close-editor href="/?view=transactions">Close</a></div>
+ <form data-op="budgets:saveTransaction" data-transform="transaction"><fieldset>
+  <label>Account<select name="accountId" required></select><input type="hidden" name="accountId" data-fixed-account disabled/></label>
+  <p data-show="noAccount">Connect a bank in Accounts & settings first.</p>
+  <label>Description<input name="description" required maxlength="200"/></label><Money name="amount" label="Amount (positive for outflow; negative for income or refund)"/>
+  <label>Date<input name="date" type="date" required/></label><p class="muted" data-show="imported">Imported amount, date and pending status are set by the bank. Bank amount: <span data-text="bankAmount"></span>.</p>
+  <label>Classification<select name="kind" data-classification><option value="purchase">Purchase or refund</option><option value="income">Income</option><option value="transfer">Transfer or credit card payment</option></select></label>
+  <section data-splits><h3>Category splits</h3><div data-rows></div><template data-row-template><AllocationRow split/></template><button type="button" class="secondary" data-add-row>Add split</button><p class="muted">Split amounts must total the transaction amount, including its sign.</p></section>
+  <label>Note<textarea name="note" maxlength="2000"></textarea></label><label class="checkbox" data-show="manualPending"><input name="pending" type="checkbox"/>Pending</label>
+  <div class="button-row"><button type="submit">Save transaction</button><button type="button" class="danger" data-op="budgets:deleteTransaction" data-show="delete" data-confirm="Delete this manual transaction?">Delete manual entry</button></div><p data-message role="alert"></p>
+ </fieldset></form>
+ <form class="reconcile" data-op="budgets:reconcile" data-show="reconcile"><h3>Match an imported entry</h3><p>Keep the imported entry and apply this manual entry’s categories and note. The manual entry will stop counting.</p><label>Imported transaction<select name="importId" required></select></label><button type="submit">Match entries</button><p data-message role="alert"></p></form>
 </section>

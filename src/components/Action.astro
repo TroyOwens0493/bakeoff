@@ -1,5 +1,0 @@
----
-interface Props { op: string; args?: object; kind?: "mutation" | "action"; confirm?: string; disabled?: boolean; class?: string; success?: string; }
-const { op, args = {}, kind = "mutation", confirm, disabled, class: css = "secondary", success } = Astro.props;
----
-<button type="button" class={css} data-op={op} data-args={JSON.stringify(args)} data-kind={kind} data-confirm={confirm} data-success={success} disabled={disabled}><slot /></button>

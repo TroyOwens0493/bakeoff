@@ -1,22 +1,25 @@
-import { ConvexHttpClient } from "convex/browser";
 import {
 	type FunctionArgs,
 	type FunctionReference,
+	type FunctionReturnType,
 	getFunctionName,
 } from "convex/server";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import { type BackendConfig, proxyAuth } from "./auth";
 import { initialSpace, reportingMonth, reportStart } from "./bootstrap";
 import type { PageData } from "./page-data";
 
-// No shared client or cache: every request authenticates its own private reads.
+export type QueryReader = <Q extends FunctionReference<"query">>(
+	query: Q,
+	args: FunctionArgs<Q>,
+) => Promise<FunctionReturnType<Q>>;
+
+// The browser owns the authenticated client. This module only chooses queries.
 export async function loadBudget(
-	request: Request,
-	config: BackendConfig,
-	fetcher: typeof fetch = fetch,
+	url: URL,
+	queryReader: QueryReader,
+	convexUrl: string,
 ): Promise<PageData> {
-	const url = new URL(request.url);
 	const p = url.searchParams;
 	const views = [
 		"overview",
@@ -27,7 +30,7 @@ export async function loadBudget(
 		"profile",
 	];
 	const page: PageData = {
-		convexUrl: config.convexUrl,
+		convexUrl,
 		home: null,
 		month: "",
 		view: views.includes(p.get("view") ?? "")
@@ -37,25 +40,11 @@ export async function loadBudget(
 				: "overview",
 		watches: [],
 	};
-	if (!request.headers.get("cookie")) return page;
-	const response = await proxyAuth(
-		new Request(new URL("/api/auth/convex/token", request.url), {
-			headers: request.headers,
-		}),
-		config,
-		fetcher,
-	);
-	if (response.status === 401 || response.status === 403) return page;
-	if (!response.ok) throw new Error("Could not check your session.");
-	const { token } = (await response.json()) as { token?: string };
-	if (!token) return page;
-	const client = new ConvexHttpClient(config.convexUrl, { fetch: fetcher });
-	client.setAuth(token);
 	async function read<Q extends FunctionReference<"query">>(
 		query: Q,
 		args: FunctionArgs<Q>,
 	) {
-		const value = await client.query(query, args);
+		const value = await queryReader(query, args);
 		page.watches.push({
 			name: getFunctionName(query),
 			args,

@@ -2,8 +2,6 @@
 import "../styles.css";
 interface Props { title?: string; }
 const { title = "Budget Together" } = Astro.props;
-Astro.response.headers.set("Cache-Control", "private, no-store");
-Astro.response.headers.set("Vary", "Cookie");
 ---
 <!doctype html>
 <html lang="en">

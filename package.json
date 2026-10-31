@@ -15,8 +15,9 @@
     "check": "biome check",
     "test": "node --experimental-strip-types --import ./tests/register.ts --test tests/*.test.ts",
     "typecheck": "astro check && tsc --noEmit",
-    "start": "node --env-file-if-exists=.env.local dist/server/entry.mjs",
-    "test:ssr": "pnpm build && node --test tests/ssr/*.test.mjs"
+    "start": "astro preview --port 3000",
+    "test:static": "pnpm build && node --test tests/static/*.test.mjs",
+    "measure": "node scripts/measure-build.mjs"
   },
   "dependencies": {
     "@convex-dev/better-auth": "0.12.5",
@@ -24,9 +25,7 @@
     "better-auth": "~1.6.33",
     "convex": "^1.32.0",
     "tailwindcss": "^4.1.18",
-    "astro": "7.4.4",
-    "@astrojs/node": "11.1.9",
-    "@astrojs/netlify": "8.2.10"
+    "astro": "7.4.4"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",

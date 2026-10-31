@@ -1,10 +1,5 @@
----
-import { type Dashboard, usd } from "../lib/page-data";
-interface Props { data: Dashboard; }
-const { data } = Astro.props;
----
 <div class="summary-grid">
-	<article class="summary-card"><span>Money in</span><strong>{usd(data.income + data.incoming)}</strong><small>{usd(data.plan?.expectedIncome ?? 0)} expected income · {usd(data.funds.incoming)} planned budget funding</small></article>
-	<article class="summary-card"><span>Money out</span><strong>{usd(data.spending)}</strong><small>{usd(data.pending)} pending, separate from totals</small></article>
-	<article class="summary-card green"><span>Saved this month</span><strong>{usd(data.savings)}</strong><small>{usd(data.savings - (data.plan?.savingsTarget ?? 0))} relative to your {usd(data.plan?.savingsTarget ?? 0)} target</small></article>
+ <article class="summary-card"><span>Money in</span><strong data-text="moneyIn"></strong><small><span data-text="expected"></span> expected income · <span data-text="incoming"></span> planned budget funding</small></article>
+ <article class="summary-card"><span>Money out</span><strong data-text="spending"></strong><small><span data-text="pending"></span> pending, separate from totals</small></article>
+ <article class="summary-card green"><span>Saved this month</span><strong data-text="savings"></strong><small><span data-text="relative"></span> relative to your <span data-text="target"></span> target</small></article>
 </div>

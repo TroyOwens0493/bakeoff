@@ -3,7 +3,8 @@
     ".astro/types.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "**/*.astro"
+    "**/*.astro",
+    "**/*.mts"
   ],
   "compilerOptions": {
     "target": "ES2022",

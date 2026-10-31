@@ -1170,3 +1170,12 @@ details[open] > summary {
 		right: -90px;
 	}
 }
+.session-status {
+	margin: 0;
+	padding: 8px 20px;
+	background: #ecf3ec;
+	color: #285e4e;
+}
+[hidden] {
+	display: none;
+}

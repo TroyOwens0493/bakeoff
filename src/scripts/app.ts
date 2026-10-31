@@ -4,8 +4,10 @@ import { api } from "../../convex/_generated/api";
 import { cents } from "../domain/budget";
 import { authClient } from "../lib/auth-client";
 import { type Args, formArgs } from "../lib/form-args";
-import { usd, type Watch } from "../lib/page-data";
+import { loadBudget } from "../lib/load-budget";
+import { type PageData, usd, type Watch } from "../lib/page-data";
 import { openPlaid } from "../lib/plaid-link";
+import { renderAuth, renderBudget } from "../lib/render";
 
 type PageState = {
 	convexUrl: string;
@@ -17,10 +19,13 @@ type PageState = {
 	watches: Watch[];
 };
 let client: ConvexClient | undefined;
+let currentUserId: string | undefined;
 let state: PageState | null = null;
 let stops: (() => void)[] = [];
 let busy = false;
 let refreshing = false;
+let pendingRefresh: { url: URL; force: boolean } | null = null;
+let renderedUrl = new URL(location.href);
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 const $ = <T extends Element = HTMLElement>(
 	selector: string,
@@ -33,7 +38,13 @@ const $$ = <T extends Element = HTMLElement>(
 const isDirty = () => Boolean($("form[data-dirty]"));
 
 function message(text: string, form?: HTMLFormElement, error = false) {
-	const target = form ? $("[data-message]", form) : $("[data-global-message]");
+	const target = form
+		? $("[data-message]", form)
+		: ($("[data-global-message]") ?? $("[data-startup-message]"));
+	if (!form && !$("[data-global-message]")) {
+		const startup = $("[data-startup-error]");
+		if (startup) startup.hidden = !text;
+	}
 	if (!target) return;
 	target.textContent = text;
 	target.hidden = !text;
@@ -47,37 +58,94 @@ function pending() {
 }
 
 async function refresh(url = new URL(location.href), force = false) {
-	if (refreshing) return;
+	if (refreshing) {
+		pendingRefresh = { url, force };
+		return;
+	}
 	if (!force && (isDirty() || busy)) {
 		pending();
 		return;
 	}
 	refreshing = true;
+	const status = $("[data-session-status]");
+	if (status && !state) status.hidden = false;
 	try {
-		const response = await fetch(url, {
-			cache: "no-store",
-			credentials: "same-origin",
-		});
-		if (!response.ok)
-			throw new Error("Could not reload your budget. Try again.");
-		const doc = new DOMParser().parseFromString(
-			await response.text(),
-			"text/html",
+		const session = await authClient.getSession();
+		if (session.error)
+			throw new Error(session.error.message ?? "Could not check your session.");
+		let page: PageData | null = null;
+		if (session.data?.user) {
+			if (currentUserId && currentUserId !== session.data.user.id) {
+				for (const stop of stops) stop();
+				stops = [];
+				await client?.close();
+				client = undefined;
+				state = null;
+				const root = $("#app-content");
+				if (root) root.textContent = "Loading your budget…";
+			}
+			currentUserId = session.data.user.id;
+			const convexUrl = import.meta.env.VITE_CONVEX_URL;
+			if (!convexUrl)
+				throw new Error(
+					"Set VITE_CONVEX_URL in .env.local and start the app again.",
+				);
+			if (!client) {
+				client = new ConvexClient(convexUrl);
+				client.setAuth(async () => {
+					const result = await authClient.convex.token();
+					return result.data?.token ?? null;
+				});
+			}
+			const activeClient = client;
+			page = await loadBudget(
+				url,
+				(query, args) => activeClient.query(query, args),
+				convexUrl,
+			);
+		} else if (client) {
+			await client.close();
+			client = undefined;
+			currentUserId = undefined;
+		}
+		for (const stop of stops) stop();
+		stops = [];
+		state = page
+			? {
+					convexUrl: page.convexUrl,
+					authenticated: true,
+					spaceId: page.space?._id,
+					month: page.month,
+					active: page.space?.active,
+					ensureMonth: Boolean(page.space?.active && !page.dashboard?.plan),
+					watches: page.watches,
+				}
+			: null;
+		$("#app-content")?.replaceChildren(
+			page ? renderBudget(page, url) : renderAuth(url),
 		);
-		const content = doc.querySelector("#app-content");
-		const current = $("#app-content");
-		if (!content || !current) throw new Error("Could not reload your budget.");
-		current.replaceWith(content);
-		history.replaceState(null, "", url);
+		renderedUrl = new URL(url);
+		if (!pendingRefresh) history.replaceState(null, "", url);
+		const startup = $("[data-startup-error]");
+		if (startup) startup.hidden = true;
+		if (status) status.hidden = true;
 		await connect();
 	} catch (error) {
+		if (status) status.hidden = true;
 		message(
-			error instanceof Error ? error.message : "Could not reload your budget.",
+			error instanceof Error
+				? error.message
+				: "Could not load your budget. Try again.",
 			undefined,
 			true,
 		);
 	} finally {
 		refreshing = false;
+		if (pendingRefresh) {
+			const next = pendingRefresh;
+			pendingRefresh = null;
+			void refresh(next.url, next.force);
+		}
 	}
 }
 
@@ -90,17 +158,19 @@ function changed() {
 
 function recalculate(form: HTMLFormElement) {
 	try {
-		const data = new FormData(form);
+		const value = (name: string) =>
+			$<HTMLInputElement>(`input[name="${name}"]`, form)?.value ?? "";
 		const set = (selector: string, value: number) => {
 			const node = $(selector, form);
 			if (node) node.textContent = usd(value);
 		};
 		if (form.dataset.transform === "plan") {
-			const income = cents(String(data.get("expectedIncome")));
-			const target = cents(String(data.get("savingsTarget")));
-			const total = [...data]
-				.filter(([key]) => key.startsWith("limit:"))
-				.reduce((sum, [, value]) => sum + cents(String(value)), 0);
+			const income = cents(value("expectedIncome"));
+			const target = cents(value("savingsTarget"));
+			const total = $$<HTMLInputElement>('input[name^="limit:"]', form).reduce(
+				(sum, input) => sum + cents(input.value),
+				0,
+			);
 			const available =
 				income + Number(form.dataset.incoming) + Number(form.dataset.carry);
 			const balance =
@@ -120,9 +190,10 @@ function recalculate(form: HTMLFormElement) {
 			if (save) save.disabled = !state?.active || balance !== 0;
 		}
 		if (form.dataset.transform === "review") {
-			const total = data
-				.getAll("allocationAmount")
-				.reduce<number>((sum, value) => sum + cents(String(value)), 0);
+			const total = $$<HTMLInputElement>(
+				'input[name="allocationAmount"]',
+				form,
+			).reduce((sum, input) => sum + cents(input.value), 0);
 			set("[data-review-remaining]", Number(form.dataset.available) - total);
 			set("[data-review-reserved]", total);
 			set("[data-review-retained]", Number(form.dataset.savings) - total);
@@ -151,28 +222,15 @@ function classification(select: HTMLSelectElement) {
 }
 
 async function connect() {
-	for (const stop of stops) stop();
-	stops = [];
-	const previousUrl = state?.convexUrl;
-	state = JSON.parse(
-		$("#page-state")?.textContent ?? "null",
-	) as PageState | null;
-	if (client && (!state || previousUrl !== state.convexUrl)) {
-		await client.close();
-		client = undefined;
-	}
 	for (const input of $$<HTMLInputElement>("[data-local-timezone]"))
 		input.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	for (const select of $$<HTMLSelectElement>("[data-classification]"))
 		classification(select);
-	if (!state?.authenticated) return;
-	if (!client) {
-		client = new ConvexClient(state.convexUrl);
-		client.setAuth(async () => {
-			const result = await authClient.convex.token();
-			return result.data?.token ?? null;
-		});
-	}
+	for (const form of $$<HTMLFormElement>(
+		'form[data-transform="plan"],form[data-transform="review"]',
+	))
+		recalculate(form);
+	if (!state?.authenticated || !client) return;
 	for (const watch of state.watches) {
 		stops.push(
 			client.onUpdate(
@@ -183,21 +241,20 @@ async function connect() {
 				},
 				() =>
 					message(
-						"Live updates are unavailable. Reload this page to try again.",
+						"Live updates are unavailable. Use Load current values to try again.",
 						undefined,
 						true,
 					),
 			),
 		);
 	}
-	if (state.ensureMonth && state.spaceId) {
+	if (state.ensureMonth && state.spaceId)
 		await client
 			.mutation(api.budgets.ensureMonth, {
 				spaceId: state.spaceId as never,
 				month: state.month,
 			})
 			.catch((error) => message(error.message, undefined, true));
-	}
 }
 
 async function call(op: string, args: Args, kind = "mutation") {
@@ -260,14 +317,34 @@ async function authenticate(form: HTMLFormElement) {
 		form.reset();
 		message("Password updated.", form);
 	} else if (mode === "reset") {
-		location.href = "/?auth=login&passwordUpdated=1";
+		await refresh(
+			new URL("/?auth=login&passwordUpdated=1", location.origin),
+			true,
+		);
 	} else {
-		location.reload();
+		await refresh(new URL(location.href), true);
 	}
 }
 
 document.addEventListener("submit", async (event) => {
 	const form = event.target;
+	if (
+		form instanceof HTMLFormElement &&
+		!form.dataset.op &&
+		!form.dataset.auth &&
+		!form.hasAttribute("data-profile") &&
+		form.method.toLowerCase() === "get"
+	) {
+		event.preventDefault();
+		if (isDirty() && !confirm("Discard unsaved entries and open this view?"))
+			return;
+		const url = new URL(location.pathname, location.origin);
+		for (const [key, value] of new FormData(form))
+			if (typeof value === "string" && value) url.searchParams.set(key, value);
+		history.pushState(null, "", url);
+		await refresh(url, true);
+		return;
+	}
 	if (
 		!(form instanceof HTMLFormElement) ||
 		!(form.dataset.op || form.dataset.auth || form.hasAttribute("data-profile"))
@@ -316,6 +393,32 @@ document.addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("click", async (event) => {
+	const link =
+		event.target instanceof Element
+			? event.target.closest<HTMLAnchorElement>("a[href]")
+			: null;
+	if (
+		link &&
+		event instanceof MouseEvent &&
+		event.button === 0 &&
+		!event.ctrlKey &&
+		!event.metaKey &&
+		!event.shiftKey &&
+		!event.altKey &&
+		!link.target &&
+		!link.hasAttribute("download")
+	) {
+		const url = new URL(link.href, location.href);
+		if (url.origin === location.origin && url.pathname === location.pathname) {
+			event.preventDefault();
+			if (isDirty() && !confirm("Discard unsaved entries and open this view?"))
+				return;
+			history.pushState(null, "", url);
+			await refresh(url, true);
+			return;
+		}
+	}
+
 	const element =
 		event.target instanceof Element
 			? event.target.closest<HTMLElement>("button")
@@ -370,7 +473,7 @@ document.addEventListener("click", async (event) => {
 			if (result.error) throw new Error(result.error.message);
 			for (const form of $$("form[data-dirty]"))
 				form.removeAttribute("data-dirty");
-			location.reload();
+			await refresh(new URL(location.href), true);
 			return;
 		}
 		if (element.hasAttribute("data-bank-link")) {
@@ -457,7 +560,14 @@ document.addEventListener("change", (event) => {
 	)
 		classification(input);
 });
+window.addEventListener("popstate", () => {
+	if (isDirty() && !confirm("Discard unsaved entries and open this view?")) {
+		history.pushState(null, "", renderedUrl);
+		return;
+	}
+	void refresh(new URL(location.href), true);
+});
 window.addEventListener("beforeunload", (event) => {
 	if (isDirty()) event.preventDefault();
 });
-void connect().catch((error) => message(error.message, undefined, true));
+void refresh(new URL(location.href), true);

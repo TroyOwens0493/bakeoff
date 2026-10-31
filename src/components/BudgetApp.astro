@@ -1,25 +1,27 @@
----
-import { type PageData, pageLink } from "../lib/page-data";
-import Overview from "./Overview.astro";
-import Plan from "./Plan.astro";
-import Review from "./Review.astro";
-import Transactions from "./Transactions.astro";
-import Accounts from "./Accounts.astro";
-import Profile from "./Profile.astro";
-import Action from "./Action.astro";
-interface Props {page: PageData;}
-const {page}=Astro.props;
-const home=page.home!;
-const space=page.space!;
-const nav=[["overview","Overview","◫"],["transactions","Transactions","↔"],["budget","Monthly budget","▦"],["review","Monthly review","✓"],["accounts","Accounts & settings","▤"],["profile","Settings","⚙"]];
-const pageName=nav.find(x=>x[0]===page.view)?.[1];
-const link=(view:string)=>pageLink(Astro.url,{view,space:space._id,month:page.month,edit:null,categoryEdit:null,bankReview:null,cursor:null});
----
 <div class="app-shell">
-	<aside class="sidebar"><a class="brand" href="/"><span>b.</span> budget together</a><form method="get"><input type="hidden" name="view" value={page.view}/><input type="hidden" name="month" value={page.month}/><label class="space-select"><span class="eyebrow">YOUR SPACE</span><select name="space" aria-label="Budget space" data-navigate-select>{home.spaces.map(s=><option value={s._id} selected={space._id===s._id}>{s.name}{s.active?"":" · previous membership"}</option>)}</select></label><noscript><button>Open budget</button></noscript></form><nav aria-label="Main navigation">{nav.slice(0,5).map(([id,name,icon])=><a class={page.view===id?"nav-item selected":"nav-item"} href={link(id)} aria-current={page.view===id?"page":undefined}><span aria-hidden="true">{icon}</span>{name}</a>)}</nav><div class="sidebar-bottom"><a class="nav-item" href={link("profile")}>⚙ Settings</a><button class="nav-item" type="button" data-sign-out>↪ Sign out</button></div></aside>
-	<main class="main-content"><header class="topbar"><span>{space.type==="shared"?"Our household":"Personal"} <span class="slash">/</span> <strong>{pageName}</strong></span><div><details class="alerts"><summary aria-label={`Alerts, ${page.alerts?.filter(x=>!x.read).length??0} unread`}>♧{page.alerts?.some(x=>!x.read)&&<span class="notification-dot"></span>}</summary><section class="panel"><h2>Your alerts</h2>{!page.alerts?.length?<p>No category alerts this month.</p>:page.alerts.map(x=><div class="alert-row"><p>{x.text}</p>{!x.read&&<Action op="budgets:readAlert" args={{spaceId:space._id,key:x.key}}>Mark read</Action>}</div>)}</section></details><form method="get"><input type="hidden" name="view" value={page.view}/><input type="hidden" name="space" value={space._id}/><label class="month-picker"><span class="sr-only">Reporting month</span><input type="month" name="month" value={page.month} data-navigate-select required/></label><noscript><button>Open month</button></noscript></form><span class="avatar">{home.profile?.name.slice(0,2).toUpperCase()}</span></div></header>
-	{!space.active&&<p class="banner">You left this budget. Records shared before you left are available to read.</p>}
-	<div class="banner" data-live-change hidden role="alert">This page changed. Your unsaved entries are still here. <button type="button" class="secondary" data-reload>Load current values</button></div><div class="save-notice" data-global-message aria-live="polite" hidden></div>
-	{page.view==="overview"?<Overview page={page}/>:page.view==="budget"?<Plan page={page}/>:page.view==="review"?<Review page={page}/>:page.view==="transactions"?<Transactions page={page}/>:page.view==="accounts"?<Accounts page={page}/>:<Profile page={page}/>}
-	</main>
+ <aside class="sidebar">
+  <a class="brand" href="/"><span>b.</span> budget together</a>
+  <form method="get"><input type="hidden" name="view"/><input type="hidden" name="month"/>
+   <label class="space-select"><span class="eyebrow">YOUR SPACE</span><select name="space" aria-label="Budget space" data-navigate-select></select></label>
+  </form>
+  <nav aria-label="Main navigation">
+   {[["overview","Overview","◫"],["transactions","Transactions","↔"],["budget","Monthly budget","▦"],["review","Monthly review","✓"],["accounts","Accounts & settings","▤"]].map(([id,name,icon])=><a class="nav-item" data-view={id} href={`/?view=${id}`}><span aria-hidden="true">{icon}</span>{name}</a>)}
+  </nav>
+  <div class="sidebar-bottom"><a class="nav-item" data-view="profile" href="/?view=profile">⚙ Settings</a><button class="nav-item" type="button" data-sign-out>↪ Sign out</button></div>
+ </aside>
+ <main class="main-content">
+  <header class="topbar"><span><span data-text="household"></span> <span class="slash">/</span> <strong data-text="pageName"></strong></span>
+   <div><details class="alerts"><summary aria-label="Alerts" data-alert-summary>♧<span class="notification-dot" data-show="unread" hidden></span></summary>
+    <section class="panel"><h2>Your alerts</h2><p data-show="noAlerts">No category alerts this month.</p><div data-list="alerts"></div>
+     <template data-row="alerts"><div class="alert-row"><p data-text="message"></p><button type="button" class="secondary" data-op="budgets:readAlert">Mark read</button></div></template>
+    </section>
+   </details>
+   <form method="get"><input type="hidden" name="view"/><input type="hidden" name="space"/><label class="month-picker"><span class="sr-only">Reporting month</span><input type="month" name="month" data-navigate-select required/></label></form>
+   <span class="avatar" data-text="initials"></span></div>
+  </header>
+  <p class="banner" data-show="left" hidden>You left this budget. Records shared before you left are available to read.</p>
+  <div class="banner" data-live-change hidden role="alert">This page changed. Your unsaved entries are still here. <button type="button" class="secondary" data-reload>Load current values</button></div>
+  <div class="save-notice" data-global-message aria-live="polite" hidden></div>
+  <div data-view-content></div>
+ </main>
 </div>

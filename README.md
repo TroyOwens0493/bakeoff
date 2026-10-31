@@ -5,9 +5,15 @@ A responsive US-dollar budgeting app for individuals and couples. Each user has 
 This repository compares two implementations of the same app:
 
 - `main` is the exact Budget Together main-branch commit at the end of October 17, 2026, in America/Boise: `6ed8acf7683457cfb1f9fc31cbfff0d85292beae`. This commit was merged on October 13. The next main-branch change was October 24. All original files and history are retained on `main`.
-- `SSR` uses Astro 7, native `.astro` templates, and TypeScript browser scripts. The app has no React components or React islands. Convex, Better Auth, the budget calculations, the schema, and the bank/email backend are the same as the baseline.
+- `SSR` now uses Astro 7 in **static rendering mode**, native `.astro` templates, and TypeScript browser scripts. The branch name is retained at the user's request. Every HTML page is built in advance. Convex, Better Auth, the budget rules, and the bank/email backend remain in use.
 
-See [PARITY.md](PARITY.md) for the feature map and test coverage.
+See [PARITY.md](PARITY.md) for the feature map. Course documents:
+
+- [Implementation plan and task list](docs/IMPLEMENTATION_PLAN.md)
+- [Requirements checklist](docs/COURSE_REQUIREMENTS.md)
+- [Evaluation and reflection preparation](docs/EVALUATION_PREP.md)
+
+The remaining student work is to build one additional feature, write the personal reflection, and submit the course evaluation form.
 
 ## Development
 
@@ -40,22 +46,22 @@ pnpm exec convex dev --once
 
 Use the address shown in the browser, including its protocol and port. Each configured loopback address also accepts `localhost`, `127.0.0.1`, and `[::1]` with the same protocol and port. Other addresses must be listed explicitly. Hosted deployments accept only `SITE_URL` and any explicitly configured extra origins. Put this setting on Convex; `.env.local` alone does not configure backend authentication.
 
-## Server rendering and deployment
+## Static rendering and deployment
 
-Astro renders the requested view, forms, tables, and chart on the server. Each request gets its own authenticated Convex HTTP client. No private data or session token is cached between users. Private pages use `Cache-Control: private, no-store` and `Vary: Cookie`. The auth API route forwards Better Auth requests and keeps all response cookies.
+`astro.config.mjs` uses `output: "static"`. `pnpm build` creates `dist/index.html`, `dist/404.html`, and bundled assets. There is no Astro page server or SSR adapter. Every visitor receives the same public HTML, with forms and reusable native HTML templates. The build does not query Convex or include private budget records.
 
-The browser uses the plain Convex client for live subscriptions, mutations, and actions. A changed subscription loads fresh Astro HTML from the same URL. If a form has unsaved entries, the app keeps those entries and shows **Load current values**. The original revision is sent on save. The backend rejects an old revision. There is no React hydration or browser-rendered page shell.
+After the page loads, `src/scripts/app.ts` reads the session and uses the authenticated Convex browser client. `src/lib/load-budget.ts` selects the queries for the current view. `src/lib/render.ts` clones the built templates and fills text, inputs, and rows through DOM APIs. Record text is never inserted as executable HTML. Live subscriptions refresh clean views. Unsaved forms keep their entries and revisions and show **Load current values**.
 
-Use the Node adapter for a standalone server:
+Authentication uses the small API function `netlify/functions/auth.mts`. It forwards `/api/auth/*` to Better Auth on Convex and preserves cookies, origin, status, and redirects. It returns auth data, not rendered pages. The development server supplies the same API route through `server/dev-auth.ts`.
 
 ```sh
 pnpm build
-pnpm start
+pnpm test:static
 ```
 
-`pnpm start` reads `.env.local` when that file exists. Set `HOST` and `PORT` as needed. Set the app's `SITE_URL` before a hosted build so Astro accepts that origin for forwarded auth URLs. `APP_ALLOWED_ORIGINS` accepts a comma-separated list of extra app origins at build time. The local loopback hosts work on any port. The Convex deployment must also trust each browser origin through its own `SITE_URL` or `AUTH_TRUSTED_ORIGINS` settings.
+Netlify serves `dist` and deploys the auth function. `netlify.toml` sets the build command, public directory, Node 24, and functions directory. Set `VITE_CONVEX_URL` at build time for the browser, and `VITE_CONVEX_URL` plus `VITE_CONVEX_SITE_URL` in the function environment. These are public deployment addresses. Keep Plaid, Resend, and Better Auth secrets on Convex.
 
-Netlify builds select the official Astro Netlify adapter when `NETLIFY=true`. The adapter creates the server function and static files. `netlify.toml` uses `pnpm build`, `dist`, and Node 24. Netlify supplies the deployment origin. Set `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` in the build and function environment. Plaid, Resend, and Better Auth secrets stay on Convex.
+`pnpm preview` and `pnpm start` serve only the generated static files. Use `pnpm dev` for local auth, or Netlify CLI for a production-style local preview with functions. JavaScript is required for authentication and private budget data.
 
 The live Astro app is https://bakeoff-troyowens.netlify.app. Netlify is linked to `TroyOwens0493/bakeoff` and builds the `SSR` branch on each push. Its dashboard is https://app.netlify.com/projects/bakeoff-troyowens.
 
@@ -121,14 +127,14 @@ pnpm test
 pnpm typecheck
 pnpm check
 pnpm build
-pnpm test:ssr
+pnpm test:static
 ```
 
 Tests use Node's built-in test runner. Accounting tests cover cents, balance, refunds, transfers, pending entries, splits, carry-forward, and recurring estimates. Backend tests exercise the actual query/mutation handlers against an in-memory database with stubbed authentication. They check direct private access, stale edits, repeated reviews, account moves, departure cutoffs, contribution matches, and import idempotency. They do not replace live Convex, Plaid, or Resend integration tests.
 
 ## Current verification limits
 
-The original 40 domain and backend tests are retained. New tests check the form argument types, cents conversion, auth proxy, expired sessions, reporting time zones, and backend errors. The SSR suite starts the built Node server and a local fixture backend. It checks all views, editors, filtering, user isolation, escaped data, auth cookies, and 404 responses. These fixtures do not replace live Convex, Plaid, Resend, and two-user acceptance tests.
+The original 40 domain and backend tests are retained. New tests cover form conversion, auth forwarding, browser query selection, and budget isolation. The static-output suite checks prebuilt pages, equal HTML for visitors with different cookies, built forms and templates, the 404 page, and the absence of an Astro page server. Browser tests cover the interactive forms and live updates. These checks do not replace live bank, email, and two-user acceptance tests.
 
 The live site has a separate Convex development deployment. The backend code was deployed from this branch. The original project's account and budget records were not copied. Each app has its own authentication and encryption keys. Bank connectivity uses Sandbox; this site is not configured for live bank imports.
 

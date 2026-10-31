@@ -1,40 +1,37 @@
 ---
-import BudgetApp from "../components/BudgetApp.astro";
+import Page from "../layouts/Page.astro";
 import Auth from "../components/Auth.astro";
 import Onboarding from "../components/Onboarding.astro";
-import Page from "../layouts/Page.astro";
-import { backendConfig } from "../lib/auth";
-import { loadBudget } from "../lib/load-budget";
-
-const config = backendConfig();
-let bootstrap;
-let failed = false;
-if (config) {
-	try { bootstrap = await loadBudget(Astro.request, config); }
-	catch (error) {
-		console.error("Budget server render failed", error);
-		Astro.response.status = 503;
-		failed = true;
-	}
-}
+import BudgetApp from "../components/BudgetApp.astro";
+import Overview from "../components/Overview.astro";
+import Plan from "../components/Plan.astro";
+import Review from "../components/Review.astro";
+import Transactions from "../components/Transactions.astro";
+import TransactionEditor from "../components/TransactionEditor.astro";
+import Categories from "../components/Categories.astro";
+import Accounts from "../components/Accounts.astro";
+import Contributions from "../components/Contributions.astro";
+import Profile from "../components/Profile.astro";
 ---
 <Page>
-<div id="app-content">
-	{!config ? (
-		<main class="auth-card">
-			<h1>Set up Budget Together</h1>
-			<p>Set VITE_CONVEX_URL and VITE_CONVEX_SITE_URL in .env.local, then start the development server again.</p>
-		</main>
-	) : failed || !bootstrap ? (
-		<main class="auth-card">
-			<h1>We could not load this page</h1>
-			<p role="alert">Your budget is temporarily unavailable. Please try again.</p>
-			<a href={Astro.url.pathname + Astro.url.search}>Try again</a>
-		</main>
-	) : bootstrap.home ? (bootstrap.home.profile ? <BudgetApp page={bootstrap}/> : <Onboarding home={bootstrap.home}/>) : <Auth />}
-	<script type="application/json" id="page-state" set:html={JSON.stringify(bootstrap ? {convexUrl:bootstrap.convexUrl, authenticated:Boolean(bootstrap.home),spaceId:bootstrap.space?._id,active:bootstrap.space?.active,month:bootstrap.month,ensureMonth: Boolean(bootstrap.space?.active&&!bootstrap.dashboard?.plan),watches:bootstrap.watches} : null).replace(/</g,"\\u003c")}></script>
-</div>
-<script>
-	import "../scripts/app";
-</script>
+ <p class="session-status" data-session-status role="status">Checking your session…</p>
+ <div data-startup-error class="banner" role="alert" hidden><p data-startup-message></p><button type="button" data-reload>Try again</button></div>
+ <div id="app-content"><Auth/></div>
+ <noscript><p class="banner">Enable JavaScript to sign in and load your private budget. This page is built in advance; account data loads securely in your browser.</p></noscript>
+ <template id="auth-login"><Auth/></template>
+ <template id="auth-register"><Auth mode="register"/></template>
+ <template id="auth-request"><Auth mode="request"/></template>
+ <template id="auth-reset"><Auth mode="reset"/></template>
+ <template id="onboarding"><Onboarding/></template>
+ <template id="budget-shell"><BudgetApp/></template>
+ <template id="view-overview"><Overview/></template>
+ <template id="view-budget"><Plan/></template>
+ <template id="view-review"><Review/></template>
+ <template id="view-transactions"><Transactions/></template>
+ <template id="editor-transaction"><TransactionEditor/></template>
+ <template id="editor-category"><Categories/></template>
+ <template id="view-accounts"><Accounts/></template>
+ <template id="view-contributions"><Contributions/></template>
+ <template id="view-profile"><Profile/></template>
+ <script>import "../scripts/app";</script>
 </Page>

@@ -1,9 +1,4 @@
----
-import type { PageData } from "../lib/page-data";
-interface Props {page: PageData;}
-const home=Astro.props.page.home!;
----
-<form class="panel narrow" data-profile>
-	<label>Name<input name="name" value={home.profile!.name} required maxlength="100"/></label><label>Email<input value={home.user.email} readonly type="email"/></label><label>Time zone<input name="timeZone" value={home.profile!.timeZone} required/></label><button type="submit">Save profile</button><p data-message role="alert"></p>
-</form>
-<details class="panel narrow"><summary>Change password</summary><form data-auth="changePassword"><label>Current password<input name="currentPassword" type="password" autocomplete="current-password" required/></label><label>New password<input name="newPassword" type="password" minlength="12" autocomplete="new-password" required/></label><button type="submit">Save password</button><p data-message role="alert"></p></form></details>
+<div>
+ <form class="panel narrow" data-profile><label>Name<input name="name" required maxlength="100"/></label><label>Email<input data-profile-email readonly type="email"/></label><label>Time zone<input name="timeZone" required/></label><button type="submit">Save profile</button><p data-message role="alert"></p></form>
+ <details class="panel narrow"><summary>Change password</summary><form data-auth="changePassword"><label>Current password<input name="currentPassword" type="password" autocomplete="current-password" required/></label><label>New password<input name="newPassword" type="password" minlength="12" autocomplete="new-password" required/></label><button type="submit">Save password</button><p data-message role="alert"></p></form></details>
+</div>

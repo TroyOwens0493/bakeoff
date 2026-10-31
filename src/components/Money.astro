@@ -3,4 +3,4 @@ import { amount } from "../lib/page-data";
 interface Props { name: string; value?: number; label: string; readonly?: boolean; }
 const { name, value = 0, label, readonly = false } = Astro.props;
 ---
-<label>{label}<span class="money-input"><span>$</span><input name={name} value={amount(value)} inputmode="decimal" required readonly={readonly} pattern="-?[0-9]+(\.[0-9]{1,2})?" /></span></label>
+<label><span data-money-label>{label}</span><span class="money-input"><span>$</span><input name={name} value={amount(value)} inputmode="decimal" required readonly={readonly} pattern="-?[0-9]+([.][0-9]{1,2})?" /></span></label>

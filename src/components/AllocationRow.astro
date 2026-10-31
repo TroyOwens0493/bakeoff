@@ -1,10 +1,9 @@
 ---
-import type { Doc } from "../../convex/_generated/dataModel";
-import { amount } from "../lib/page-data";
-interface Props { categories: Doc<"categories">[]; month?: string; categoryId?: string; value?: number; split?: boolean; }
-const { categories, month, categoryId="", value=0, split=false } = Astro.props;
+interface Props { split?: boolean; }
+const {split = false}=Astro.props;
 ---
-<div class={split ? "split-row" : "carry-row"} data-allocation-row>
-	<label><span class={split ? "sr-only" : ""}>{split ? "Category for split" : "Destination"}</span><select name="categoryId" required={split}>{!split&&<option value="" selected={!categoryId}>{month} savings target</option>}{categories.map((c,i)=><option value={c._id} selected={categoryId===c._id||split&&!categoryId&&i===0}>{month} {c.name}</option>)}</select></label>
-	<label><span class={split ? "sr-only" : ""}>Amount</span><input name="allocationAmount" value={amount(value)} inputmode="decimal" required /></label><button type="button" class="text-button" data-remove-row aria-label={split ? "Remove split" : "Remove allocation"}>×</button>
+<div class={split?"split-row":"carry-row"} data-allocation-row>
+ <label><span class={split?"sr-only":""}>{split?"Category for split":"Destination"}</span><select name="categoryId" required={split}></select></label>
+ <label><span class={split?"sr-only":""}>Amount</span><input name="allocationAmount" value="0.00" inputmode="decimal" required/></label>
+ <button type="button" class="text-button" data-remove-row aria-label={split?"Remove split":"Remove allocation"}>×</button>
 </div>

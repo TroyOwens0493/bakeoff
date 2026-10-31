@@ -1,10 +1,8 @@
 export type BackendConfig = { convexUrl: string; convexSiteUrl: string };
 
 export function backendConfig(): BackendConfig | null {
-	const convexUrl =
-		process.env.VITE_CONVEX_URL ?? import.meta.env.VITE_CONVEX_URL;
-	const convexSiteUrl =
-		process.env.VITE_CONVEX_SITE_URL ?? import.meta.env.VITE_CONVEX_SITE_URL;
+	const convexUrl = process.env.VITE_CONVEX_URL;
+	const convexSiteUrl = process.env.VITE_CONVEX_SITE_URL;
 	return convexUrl && convexSiteUrl ? { convexUrl, convexSiteUrl } : null;
 }
 

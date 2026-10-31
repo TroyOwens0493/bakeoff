@@ -61,47 +61,16 @@ test("Astro auth proxy forwards the body, cookies, origin, redirects and all set
 	assert.equal(response.headers.get("cache-control"), "private, no-store");
 	assert.equal(response.headers.has("content-encoding"), false);
 });
-test("unauthenticated pages avoid backend queries and expired sessions show authentication", async () => {
-	let calls = 0;
-	const fetcher: typeof fetch = async () => {
-		calls++;
-		return new Response(null, { status: 401 });
-	};
-	assert.equal(
-		(
-			await loadBudget(
-				new Request("https://app.example/?token=reset"),
-				config,
-				fetcher,
-			)
-		).home,
-		null,
-	);
-	assert.equal(calls, 0);
-	assert.equal(
-		(
-			await loadBudget(
-				new Request("https://app.example/", {
-					headers: { cookie: "session=expired" },
-				}),
-				config,
-				fetcher,
-			)
-		).home,
-		null,
-	);
-	assert.equal(calls, 1);
-});
-test("a backend outage is not treated as a signed-out session", async () => {
+test("browser data loading propagates backend errors", async () => {
 	await assert.rejects(
 		loadBudget(
-			new Request("https://app.example/", {
-				headers: { cookie: "session=valid" },
-			}),
-			config,
-			async () => new Response(null, { status: 503 }),
+			new URL("https://app.example/"),
+			async () => {
+				throw new Error("Backend unavailable");
+			},
+			config.convexUrl,
 		),
-		/session/,
+		/Backend unavailable/,
 	);
 });
 test("the reporting month uses the budget time zone across UTC boundaries", () => {
