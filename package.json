@@ -1,5 +1,5 @@
 {
-  "name": "budget-together",
+  "name": "bakeoff",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@12.5.1",
@@ -7,42 +7,33 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --port 3000 --strictPort",
-    "generate-routes": "tsr generate",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "astro dev --port 3000",
+    "build": "astro build",
+    "preview": "astro preview --port 3000",
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
     "test": "node --experimental-strip-types --import ./tests/register.ts --test tests/*.test.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "astro check && tsc --noEmit",
+    "start": "node --env-file-if-exists=.env.local dist/server/entry.mjs",
+    "test:ssr": "pnpm build && node --test tests/ssr/*.test.mjs"
   },
   "dependencies": {
     "@convex-dev/better-auth": "0.12.5",
-    "@convex-dev/react-query": "0.1.0",
     "@tailwindcss/vite": "^4.1.18",
-    "@tanstack/react-devtools": "latest",
-    "@tanstack/react-router": "latest",
-    "@tanstack/react-router-devtools": "latest",
-    "@tanstack/react-start": "latest",
     "better-auth": "~1.6.33",
     "convex": "^1.32.0",
-    "lucide-react": "^0.577.0",
-    "nitro": "3.0.260610-beta",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "tailwindcss": "^4.1.18"
+    "tailwindcss": "^4.1.18",
+    "astro": "7.4.4",
+    "@astrojs/node": "11.1.9",
+    "@astrojs/netlify": "8.2.10"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
     "@tailwindcss/typography": "^0.5.16",
-    "@tanstack/devtools-vite": "latest",
-    "@tanstack/router-cli": "^1.132.0",
     "@types/node": "^22.10.2",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^6.0.1",
     "typescript": "^6.0.2",
-    "vite": "^8.0.0"
+    "vite": "^8.0.0",
+    "@astrojs/check": "0.9.12"
   }
 }

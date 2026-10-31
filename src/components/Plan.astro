@@ -1,0 +1,29 @@
+---
+import { nextMonth } from "../domain/budget";
+import { type PageData, usd } from "../lib/page-data";
+import Money from "./Money.astro";
+import Action from "./Action.astro";
+interface Props { page: PageData; }
+const { page } = Astro.props;
+const data = page.dashboard!;
+const space = page.space!;
+const { month } = page;
+const total = data.plan?.limits.reduce((s,x)=>s+x.amount,0) ?? 0;
+const expected = data.fundedBy ? 0 : data.plan?.expectedIncome ?? 0;
+const target = data.plan?.savingsTarget ?? 0;
+const balance = expected + data.funds.incoming + data.funds.carry - data.funds.outgoing - target - total;
+---
+<form data-op="budgets:savePlan" data-transform="plan" data-args={JSON.stringify({spaceId:space._id,month,revision:data.plan?.revision??0})} class="plan-grid" data-incoming={data.funds.incoming} data-carry={data.funds.carry} data-outgoing={data.funds.outgoing}>
+	<section class="panel"><h2>Monthly spending</h2><fieldset disabled={!space.active}>
+		{data.fundedBy ? <><p>Income is planned in the shared budget. Your personal allocation is {usd(data.funds.personalIncoming)} for this month.</p><input type="hidden" name="expectedIncome" value="0.00" /></> : <Money name="expectedIncome" value={expected} label="Expected take-home income" />}
+		{data.categories.map(c=><Money name={`limit:${c._id}`} value={data.plan?.limits.find(x=>x.categoryId===c._id)?.amount??0} label={c.name} />)}
+		<div class="divider"></div><Money name="savingsTarget" value={target} label="Monthly savings target" />
+		<p class="muted">Category limits repeat next month. Allocate all available money, then save your budget.</p>
+	</fieldset></section>
+	<aside class="panel green plan-summary"><p class="eyebrow">THE BIG PICTURE</p><h2>Money available to plan</h2><strong class="big-number" data-plan-available>{usd(expected+data.funds.incoming+data.funds.carry)}</strong>
+		<dl><div><dt>Expected income</dt><dd data-plan-income>{usd(expected)}</dd></div><div><dt>Incoming budget funding</dt><dd>{usd(data.funds.incoming)}</dd></div><div><dt>Carry-forward</dt><dd>{usd(data.funds.carry)}</dd></div><div><dt>Outgoing budget funding</dt><dd>{usd(data.funds.outgoing)}</dd></div><div><dt>Spending limits</dt><dd data-plan-limits>{usd(total)}</dd></div><div><dt>Savings target</dt><dd data-plan-target>{usd(target)}</dd></div><div class="total"><dt>Left to allocate</dt><dd data-plan-balance>{usd(balance)}</dd></div></dl>
+		<p data-plan-hint>{balance===0 ? "✓ Every dollar has a place." : "Adjust your plan until this amount is zero."}</p><button type="submit" disabled={!space.active||balance!==0}>Save budget</button><p data-message role="alert"></p>
+	</aside>
+</form>
+{page.people && <section class="panel"><h2>Personal budget funding</h2><p>Assign a monthly amount to each personal budget. It reduces shared funding and is available at once. No bank transfer is needed.</p><p class="muted">Both partners can change these amounts. Personal spending and transactions stay private. After a change, balance and save the affected budgets.</p>{page.people.map(person=><form class="inline-form" data-op="personalAllocations:save" data-money="amount" data-args={JSON.stringify({sharedId:space._id,privateId:person.privateId,month,revision:person.revision})}><fieldset disabled={!space.active||!person.active}><Money name="amount" value={person.amount} label={`${person.name}'s personal amount`} /><button type="submit">Save amount</button><p data-message role="alert"></p></fieldset></form>)}</section>}
+{data.plan && <Action op="budgets:repeatPlan" args={{spaceId:space._id,month}} disabled={!space.active} success="Limits copied. Open next month to finish and save your budget.">Copy limits to {nextMonth(month)}</Action>}

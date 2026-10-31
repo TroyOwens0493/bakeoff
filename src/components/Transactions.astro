@@ -1,0 +1,19 @@
+---
+import { type PageData, pageLink, usd } from "../lib/page-data";
+import Categories from "./Categories.astro";
+import TransactionEditor from "./TransactionEditor.astro";
+interface Props {page: PageData;}
+const {page}=Astro.props;
+const categories=page.dashboard!.categories;
+const rows=page.transactions!;
+const space=page.space!;
+const p=Astro.url.searchParams;
+---
+<div class="page-actions"><div class="button-row">{space.active&&<><a class="button secondary" href={pageLink(Astro.url,{categoryEdit:"new",edit:null})}>Manage categories</a><a class="button" href={pageLink(Astro.url,{edit:"new",categoryEdit:null})}>Add transaction</a></>}</div></div>
+{p.has("categoryEdit")&&<Categories page={page}/>}
+{p.has("edit")&&<TransactionEditor page={page}/>}
+<section class="panel table-panel"><form method="get" class="filters" data-filters><input type="hidden" name="view" value="transactions"/><input type="hidden" name="space" value={space._id}/><input type="hidden" name="month" value={page.month}/>
+	<label class="search-input"><span class="sr-only">Search descriptions and notes</span><input name="search" placeholder="Search transactions" value={p.get("search")??""}/></label><label><span class="sr-only">Account filter</span><select name="accountId"><option value="">All accounts</option>{page.accounts?.map(a=><option value={a._id} selected={p.get("accountId")===a._id}>{a.name}</option>)}</select></label><label><span class="sr-only">Category filter</span><select name="categoryId"><option value="">All categories</option>{categories.map(c=><option value={c._id} selected={p.get("categoryId")===c._id}>{c.name}</option>)}</select></label><button type="submit">Filter</button>
+</form><div class="table-scroll"><table><thead><tr><th>Date</th><th>Transaction</th><th>Category</th><th>Account</th><th>Amount</th></tr></thead><tbody>{rows.rows.map(x=><tr><td>{x.date}</td><td><a class="transaction-button" href={pageLink(Astro.url,{edit:x._id,categoryEdit:null})}>{x.description}</a><small>{x.pending ? "Pending · " : ""}{x.source==="manual"?"Manual":x.kind}{x.note?` · ${x.note}`:""}</small></td><td><span class="tag">{x.kind!=="purchase"?x.kind:x.splits.length>1?`Split · ${x.splits.length} categories`:categories.find(c=>c._id===x.splits[0]?.categoryId)?.name??"Uncategorized"}</span></td><td>{page.accounts?.find(a=>a._id===x.accountId)?.name??"Account"}</td><td class={x.amount<0?"inflow":""}>{usd(-x.amount)}</td></tr>)}</tbody></table></div>
+{!rows.rows.length?<p class="empty-state">No transactions match these filters.</p>:<div class="pagination"><span>{rows.total} matching transactions</span>{p.has("cursor")&&<a href={pageLink(Astro.url,{cursor:null,edit:null})}>First page</a>}{rows.next&&<a href={pageLink(Astro.url,{cursor:rows.next,edit:null})}>Next page</a>}</div>}
+</section>

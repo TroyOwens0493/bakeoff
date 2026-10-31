@@ -4,5 +4,4 @@
 
 [build.environment]
   NODE_VERSION = "24"
-  NITRO_PRESET = "netlify"
 

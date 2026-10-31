@@ -1,0 +1,29 @@
+---
+import type { PageData } from "../lib/page-data";
+import { usd, pageLink } from "../lib/page-data";
+import { spendingChart } from "./spending-chart";
+import Summary from "./Summary.astro";
+import Action from "./Action.astro";
+interface Props { page: PageData; }
+const { page } = Astro.props;
+const data = page.dashboard!;
+const space = page.space!;
+const category = Astro.url.searchParams.get("chartCategory") ?? "";
+const chart = spendingChart(page.reports ?? [], data.categories, category);
+---
+<div class="page-actions"><a class="button secondary" href={pageLink(Astro.url,{view:"budget"})}>{space.active ? "Edit monthly plan" : "View monthly plan"}</a></div>
+<Summary data={data} />
+{!data.plan && <p class="banner">Start with your monthly plan. Add expected income, category limits, and a savings target.</p>}
+<div class="dashboard-grid">
+	<section class="panel"><h2>Category balances</h2>{data.categories.map(c => {
+		const limit = data.plan?.limits.find(x => x.categoryId === c._id)?.amount ?? 0;
+		const used = data.entries.filter(x => !x.removed && !x.pending && x.kind === "purchase").reduce((sum,x) => sum + x.splits.filter(s => s.categoryId === c._id).reduce((s,x) => s+x.amount,0),0);
+		return <div class="category-row"><span class="category-icon" style={{backgroundColor:`${c.color}25`}}>◒</span><div class="category-main"><div><strong>{c.name}</strong><small>{usd(used)} of {usd(limit)}</small></div><div class="progress-track"><div style={{width:`${limit>0?Math.max(0,Math.min(100,(limit-used)/limit*100)):0}%`,background:c.color}}></div></div></div><div class={used>limit?"category-balance over":"category-balance"}><strong>{usd(limit-used)}</strong><small>{used>limit?"over budget":"left to spend"}</small></div></div>;
+	})}</section>
+	<section class="panel"><div class="section-heading"><h2>Spending over time</h2><form method="get"><input type="hidden" name="space" value={space._id}/><input type="hidden" name="month" value={page.month}/><label><span class="sr-only">Chart category</span><select name="chartCategory" data-navigate-select><option value="">All categories</option>{data.categories.map(c=><option value={c._id} selected={category===c._id}>{c.name}</option>)}</select></label><noscript><button>Apply</button></noscript></form></div>
+		<div class="bar-chart" role="img" aria-label="Monthly spending by category. Refunds extend below zero. Exact values are in the table below.">{chart.rows.map(row=><div aria-hidden="true"><div class="spending-bar"><span class="spending-zero" style={{top:`${chart.zero*100}%`}}></span>{row.segments.map(s=><span class="spending-segment" style={{top:`${s.top*100}%`,height:`${s.height*100}%`,backgroundColor:s.color}} title={`${row.month} · ${s.name}: ${usd(s.amount)}`}></span>)}</div><small>{row.month.slice(5)}</small></div>)}</div>
+		<table class="compact-table"><caption class="sr-only">Monthly spending in US dollars</caption><thead><tr><th>Month</th><th>Spending</th></tr></thead><tbody>{chart.rows.map(row=><tr><td>{row.month}</td><td>{usd(row.spending)}</td></tr>)}</tbody></table>
+	</section>
+</div>
+<section class="panel activity"><div class="section-heading"><h2>Recent activity</h2><a href={pageLink(Astro.url,{view:"transactions"})}>All transactions →</a></div>{data.entries.filter(x=>!x.removed).slice(-3).reverse().map(x=><div class="activity-row"><span class="category-icon">↔</span><div><strong>{x.description}</strong><small>{x.date} · {x.pending ? "Pending" : x.kind}</small></div><strong>{usd(-x.amount)}</strong></div>)}{!data.entries.length && <p class="empty-state">Connect an account to see your activity here.</p>}</section>
+{page.recurring?.some(x=>x.status!=="dismissed") && <section class="panel"><h2>Recurring-charge suggestions</h2><p>Estimates from at least three similar monthly charges. No money is moved.</p>{page.recurring.filter(x=>x.status!=="dismissed").map(x=><div class="alert-row"><span><strong>{x.merchant}</strong><small>{usd(x.amount)} · estimated {x.date} · {x.status}</small></span><div class="button-row"><Action op="budgets:setRecurring" args={{spaceId:space._id,merchant:x.merchant,status:"confirmed"}} disabled={!space.active}>Confirm</Action><Action op="budgets:setRecurring" args={{spaceId:space._id,merchant:x.merchant,status:"dismissed"}} disabled={!space.active}>Dismiss</Action></div></div>)}</section>}

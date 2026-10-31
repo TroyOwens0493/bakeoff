@@ -1,0 +1,14 @@
+---
+import type { Home } from "../lib/bootstrap";
+interface Props { home: Home; }
+const { home } = Astro.props;
+---
+<main class="auth-card">
+	<p class="eyebrow">LET’S GET STARTED</p><h1>Make room for your plans.</h1>
+	<p>Your accounts start in your private budget. You can connect a bank after this step.</p>
+	<form data-op="budgets:setup">
+		<label>Your name<input name="name" value={home.user.name} required maxlength="100" /></label>
+		<label>Reporting time zone<input name="timeZone" data-local-timezone value="America/Boise" required /></label>
+		<button type="submit">Create my private budget</button><p data-message role="alert"></p>
+	</form>
+</main>

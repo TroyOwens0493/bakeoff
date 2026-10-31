@@ -11,11 +11,11 @@
 			"**/src/**/*",
 			"**/.vscode/**/*",
 			"**/index.html",
-			"**/vite.config.ts",
-			"!**/src/routeTree.gen.ts",
 			"**/convex/**/*",
 			"!**/convex/_generated",
-			"**/tests/**/*"
+			"**/tests/**/*",
+			"**/astro.config.mjs",
+			"!**/*.astro"
 		]
 	},
 	"formatter": {

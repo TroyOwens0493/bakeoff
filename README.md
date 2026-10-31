@@ -1,8 +1,13 @@
-# Budget Together
+# bakeoff
 
 A responsive US-dollar budgeting app for individuals and couples. Each user has a private budget and can share one budget with one partner. Monthly plans allocate expected income, personal funding, and explicit carry-forward to category limits and a savings target. The app does not move money.
 
-The project uses the existing React, TanStack Start, Tailwind CSS, Convex, Better Auth, Lucide, and Biome stack. The additional `@convex-dev/better-auth` component stores authentication in Convex. Plaid and Resend use their HTTP APIs without additional SDK packages.
+This repository compares two implementations of the same app:
+
+- `main` is the exact Budget Together main-branch commit at the end of October 17, 2026, in America/Boise: `6ed8acf7683457cfb1f9fc31cbfff0d85292beae`. This commit was merged on October 13. The next main-branch change was October 24. All original files and history are retained on `main`.
+- `SSR` uses Astro 7, native `.astro` templates, and TypeScript browser scripts. The app has no React components or React islands. Convex, Better Auth, the budget calculations, the schema, and the bank/email backend are the same as the baseline.
+
+See [PARITY.md](PARITY.md) for the feature map and test coverage.
 
 ## Development
 
@@ -16,7 +21,7 @@ pnpm exec convex dev
 
 Sign in to the existing Convex **development** project. Keep `convex dev` running to generate types and sync backend changes. Set `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` in `.env.local` to the development deployment's `.cloud` and `.site` addresses. Do not use a production deployment for this branch.
 
-Set the variables described in `.env.example` on that Convex development deployment. `SITE_URL` is the app origin, usually `http://localhost:3000`. Generate a random Better Auth secret and a base64 key containing 32 random bytes for Plaid token encryption. Keep secrets in deployment environment variables. Browser variables start with `VITE_` and must not contain secrets.
+Set the variables described in `.env.example` on that Convex development deployment. `SITE_URL` is the app origin, usually `http://localhost:3000`. Generate a random Better Auth secret and a base64 key containing 32 random bytes for Plaid token encryption. Keep secrets in deployment environment variables. The two `VITE_CONVEX_*` values are public backend addresses. They must not contain secrets. Astro passes the public Convex address to its browser script.
 
 ```sh
 pnpm dev
@@ -35,15 +40,24 @@ pnpm exec convex dev --once
 
 Use the address shown in the browser, including its protocol and port. Each configured loopback address also accepts `localhost`, `127.0.0.1`, and `[::1]` with the same protocol and port. Other addresses must be listed explicitly. Hosted deployments accept only `SITE_URL` and any explicitly configured extra origins. Put this setting on Convex; `.env.local` alone does not configure backend authentication.
 
-## Netlify sandbox deployment
+## Server rendering and deployment
 
-The sandbox app is hosted at https://budget-together-sandbox.netlify.app. Netlify builds and deploys the app when changes are pushed to `main` in `TroyOwens0493/budgetTogether` on GitHub. Development work stays on `dev` and is merged into `main` for deployment.
+Astro renders the requested view, forms, tables, and chart on the server. Each request gets its own authenticated Convex HTTP client. No private data or session token is cached between users. Private pages use `Cache-Control: private, no-store` and `Vary: Cookie`. The auth API route forwards Better Auth requests and keeps all response cookies.
 
-`netlify.toml` sets the build command to `pnpm build`, the publish directory to `dist`, Node to version 24, and `NITRO_PRESET` to `netlify`. Nitro builds the server function for page rendering and `/api/auth/*`. Deploy the server function with the static files.
+The browser uses the plain Convex client for live subscriptions, mutations, and actions. A changed subscription loads fresh Astro HTML from the same URL. If a form has unsaved entries, the app keeps those entries and shows **Load current values**. The original revision is sent on save. The backend rejects an old revision. There is no React hydration or browser-rendered page shell.
 
-Netlify uses `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` from `.env.local` for both builds and server functions. Plaid secrets stay on the existing Convex development deployment. The Plaid client uses Sandbox.
+Use the Node adapter for a standalone server:
 
-On Convex, `SITE_URL` is the Netlify app address. `AUTH_TRUSTED_ORIGINS` also accepts the local development addresses on ports 3000 and 3001. Keep these addresses when you change the hosted address.
+```sh
+pnpm build
+pnpm start
+```
+
+`pnpm start` reads `.env.local` when that file exists. Set `HOST` and `PORT` as needed. Set the app's `SITE_URL` before a hosted build so Astro accepts that origin for forwarded auth URLs. `APP_ALLOWED_ORIGINS` accepts a comma-separated list of extra app origins at build time. The local loopback hosts work on any port. The Convex deployment must also trust each browser origin through its own `SITE_URL` or `AUTH_TRUSTED_ORIGINS` settings.
+
+Netlify builds select the official Astro Netlify adapter when `NETLIFY=true`. The adapter creates the server function and static files. `netlify.toml` uses `pnpm build`, `dist`, and Node 24. Netlify supplies the deployment origin. Set `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` in the build and function environment. Plaid, Resend, and Better Auth secrets stay on Convex.
+
+This repository has not been connected to a new Netlify site. The Budget Together sandbox site belongs to the source project. This task did not change that site or deploy changes to its Convex backend.
 
 ## Bank connectivity and email
 
@@ -103,13 +117,16 @@ pnpm test
 pnpm typecheck
 pnpm check
 pnpm build
+pnpm test:ssr
 ```
 
 Tests use Node's built-in test runner. Accounting tests cover cents, balance, refunds, transfers, pending entries, splits, carry-forward, and recurring estimates. Backend tests exercise the actual query/mutation handlers against an in-memory database with stubbed authentication. They check direct private access, stale edits, repeated reviews, account moves, departure cutoffs, contribution matches, and import idempotency. They do not replace live Convex, Plaid, or Resend integration tests.
 
 ## Current verification limits
 
-The backend has been deployed to the configured Convex development deployment, and its API declarations have been regenerated. Budget edits have been tested in the authenticated UI, including repeated saves and persistence after a page reload. Keep `pnpm exec convex dev` running with `pnpm dev` so backend requests stay in sync with the UI. To sync the backend once, run `pnpm exec convex dev --once`. Registration, reset emails, partner emails, Plaid Link/imports, and two-browser collaboration still need live integration testing.
+The original 40 domain and backend tests are retained. New tests check the form argument types, cents conversion, auth proxy, expired sessions, reporting time zones, and backend errors. The SSR suite starts the built Node server and a local fixture backend. It checks all views, editors, filtering, user isolation, escaped data, auth cookies, and 404 responses. These fixtures do not replace live Convex, Plaid, Resend, and two-user acceptance tests.
+
+No `.env.local` or credentials were copied from Budget Together. Configure a Convex development deployment before using real accounts. Use the baseline backend from this branch. Do not deploy this old backend over a newer shared deployment without checking compatibility.
 
 Persistent Plaid account identifiers prevent duplicate connections where Plaid provides them. When no persistent ID is available, a match on bank, account type, and last four digits pauses the new connection. The user must identify it as the same account (keep the existing import) or a different account (import it). This check includes the current partner's accounts without returning their private account details. Imports, webhooks, and scheduled sync cannot bypass a pending review.
 
@@ -117,4 +134,4 @@ Transaction pages return a bounded page, but their backend filtering currently r
 
 ## Project workflow
 
-Work is on the `dev` branch. Team membership and project tracking are not yet configured in this repo. Add confirmed team members, sprint goals, and retrospective notes when the team and tracking tool are chosen. Future work includes live acceptance testing, production bank rollout, and larger-history query/import scaling. Investment tracking, payments, groups larger than two, non-US banks, other currencies, reminders, offline support, and subscription billing remain outside scope.
+The Astro implementation is on `SSR`. Keep `main` at the baseline commit for comparison. Team membership and project tracking are not yet configured in this repo. Add confirmed team members, sprint goals, and retrospective notes when the team and tracking tool are chosen. Future work includes live acceptance testing, production bank rollout, and larger-history query/import scaling. Investment tracking, payments, groups larger than two, non-US banks, other currencies, reminders, offline support, and subscription billing remain outside scope.

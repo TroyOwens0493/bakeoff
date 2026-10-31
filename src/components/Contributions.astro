@@ -1,0 +1,14 @@
+---
+import { type PageData, usd } from "../lib/page-data";
+import Money from "./Money.astro";
+import Action from "./Action.astro";
+interface Props {page: PageData;}
+const {page}=Astro.props;
+const data=page.contributions!;
+const args={privateId:page.space!._id,sharedId:page.contributionSharedId,month:page.month};
+---
+<section class="panel"><h2>Funding your shared budget</h2><p>A contribution reduces private funding and adds the same amount to shared funding. It is separate from earned income.</p><p class="muted">After changing the planned amount, balance and save both monthly budgets.</p>
+	<form class="inline-form" data-op="contributions:savePlanned" data-money="planned" data-args={JSON.stringify({...args,revision:data.contribution?.revision??0})}><Money name="planned" value={data.contribution?.planned??0} label={`Planned contribution for ${page.month}`}/><button type="submit">Save planned amount</button><p data-message role="alert"></p></form>
+	<h3>Suggested bank matches</h3><p>Confirm a match only when these entries record the same transfer.</p>{data.suggestions.map(x=><div class="alert-row"><span><strong>{usd(x.amount)}</strong><small>{x.date} · {x.outDescription} → {x.inDescription}</small></span><Action op="contributions:confirm" args={{privateId:args.privateId,sharedId:args.sharedId,outId:x.outId,inId:x.inId}}>Confirm match</Action></div>)}{!data.suggestions.length&&<p class="muted">No matching posted transfers found. Classify an outgoing personal entry as a transfer to suggest its matching shared deposit.</p>}
+	<h3>Confirmed contributions</h3>{data.contribution?.pairs.map(x=><div class="alert-row"><span>{usd(x.amount)}</span><Action op="contributions:unmatch" args={{id:data.contribution!._id,outId:x.outId,revision:data.contribution!.revision}}>Remove match</Action></div>)}
+</section>

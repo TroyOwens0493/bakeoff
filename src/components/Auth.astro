@@ -1,0 +1,21 @@
+---
+const token = Astro.url.searchParams.get("token");
+const modes = ["login", "register", "request", "reset"];
+const requested = Astro.url.searchParams.get("auth") ?? "login";
+const mode = token ? "reset" : modes.includes(requested) ? requested : "login";
+---
+<main class="auth-shell">
+	<div class="auth-intro"><a class="brand" href="/"><span>b.</span> budget together</a><h1>Manage your finances, together.</h1><div class="intro-rule">Make your money work for you</div></div>
+	<section class="auth-card">
+		<p class={mode === "login" ? "eyebrow auth-welcome" : "eyebrow"}>{mode === "login" ? "WELCOME BACK" : "WELCOME TOGETHER"}</p>
+		{mode !== "login" && <h2>{({register:"Create your account", request:"Reset your password", reset:"Choose a new password"})[mode]}</h2>}
+		<form data-auth={mode} data-token={token}>
+			{mode === "register" && <label>Name<input name="name" required autocomplete="name" maxlength="100" /></label>}
+			{mode !== "reset" && <label>Email<input name="email" type="email" required autocomplete="email" /></label>}
+			{mode !== "request" && <label>Password<input name="password" type="password" required minlength={mode === "login" ? 1 : 12} autocomplete={mode === "login" ? "current-password" : "new-password"} />{mode !== "login" && <small>Use at least 12 characters.</small>}</label>}
+			<button type="submit">{({login:"Sign in", register:"Create account", request:"Send reset link", reset:"Save password"})[mode]}</button>
+			<p data-message aria-live="polite">{Astro.url.searchParams.has("passwordUpdated") ? "Password updated. Sign in with your new password." : ""}</p>
+		</form>
+		<div class="auth-links">{mode === "login" ? <><a href="/?auth=request">Forgot password?</a><a href="/?auth=register">Create an account</a></> : <a href="/">Back to sign in</a>}</div>
+	</section>
+</main>

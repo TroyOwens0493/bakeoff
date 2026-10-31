@@ -1,0 +1,12 @@
+---
+import { type PageData, pageLink } from "../lib/page-data";
+interface Props {page: PageData;}
+const {page}=Astro.props;
+const categories=page.dashboard!.categories;
+const current=categories.find(c=>c._id===Astro.url.searchParams.get("categoryEdit"));
+---
+<section class="panel editor" role="region" aria-label="Manage categories"><div class="section-heading"><h2>Manage categories</h2><a href={pageLink(Astro.url,{categoryEdit:null})}>Close</a></div>
+	<form method="get"><input type="hidden" name="view" value="transactions"/><input type="hidden" name="space" value={page.space!._id}/><input type="hidden" name="month" value={page.month}/><label>Category<select name="categoryEdit" data-navigate-select><option value="new">Create a category</option>{categories.map(c=><option value={c._id} selected={current?._id===c._id}>{c.name}</option>)}</select></label><noscript><button>Open category</button></noscript></form>
+	<form data-op="budgets:saveCategory" data-args={JSON.stringify({spaceId:page.space!._id,...(current ? {id:current._id,revision:current.revision}:{})})}><fieldset disabled={!page.space!.active}><label>Name<input name="name" value={current?.name??""} required maxlength="100"/></label><label>Color<input type="color" name="color" value={current?.color??"#83aaa2"}/></label><button type="submit">{current ? "Save changes" : "Create category"}</button><p data-message role="alert"></p></fieldset></form>
+	{current&&<form class="reconcile" data-op="budgets:deleteCategory" data-confirm="Delete this category and reassign its transactions, limits, and carry-forward?" data-args={JSON.stringify({id:current._id,revision:current.revision})}><h3>Delete this category</h3><p>Choose where to move its transactions, plan limits, and carry-forward allocations.</p><label>Replacement<select name="replacementId" required><option value="">Choose a category</option>{categories.filter(c=>c._id!==current._id).map(c=><option value={c._id}>{c.name}</option>)}</select></label><button type="submit" class="danger" disabled={!page.space!.active}>Delete and reassign</button><p data-message role="alert"></p></form>}
+</section>

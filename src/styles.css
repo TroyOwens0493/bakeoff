@@ -1088,3 +1088,85 @@ dialog::backdrop {
 		scroll-behavior: auto !important;
 	}
 }
+
+/* Native Astro links, details and inline editors use the original design. */
+a.button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	border: 1px solid transparent;
+	border-radius: 7px;
+	background: var(--green);
+	color: white;
+	padding: 11px 17px;
+	font-weight: 650;
+	min-height: 42px;
+}
+a.button.secondary {
+	background: #f1f4ed;
+	color: var(--green);
+	border-color: var(--border);
+}
+a.nav-item {
+	display: flex;
+	align-items: center;
+	border-radius: 7px;
+}
+a.transaction-button {
+	display: inline-block;
+}
+summary {
+	cursor: pointer;
+	font-weight: 650;
+	padding: 10px 0;
+}
+details[open] > summary {
+	margin-bottom: 14px;
+}
+.account-controls {
+	max-width: 440px;
+}
+.editor {
+	border: 2px solid #9daf87;
+	scroll-margin-top: 20px;
+}
+.alerts {
+	position: relative;
+}
+.alerts > summary {
+	position: relative;
+	padding: 10px;
+}
+.alerts > .panel {
+	position: absolute;
+	z-index: 10;
+	right: 0;
+	width: min(400px, 85vw);
+	box-shadow: 0 12px 40px #26363026;
+}
+.topbar form {
+	margin: 0;
+}
+.topbar label {
+	margin-bottom: 0;
+}
+[data-live-change] button {
+	margin-left: 8px;
+}
+.auth-links a {
+	padding: 8px;
+	font-weight: 600;
+}
+@media (max-width: 760px) {
+	.account-row,
+	.connection-row {
+		flex-wrap: wrap;
+	}
+	.account-controls {
+		width: 100%;
+	}
+	.alerts > .panel {
+		right: -90px;
+	}
+}

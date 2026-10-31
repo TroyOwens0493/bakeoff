@@ -1,0 +1,40 @@
+---
+import BudgetApp from "../components/BudgetApp.astro";
+import Auth from "../components/Auth.astro";
+import Onboarding from "../components/Onboarding.astro";
+import Page from "../layouts/Page.astro";
+import { backendConfig } from "../lib/auth";
+import { loadBudget } from "../lib/load-budget";
+
+const config = backendConfig();
+let bootstrap;
+let failed = false;
+if (config) {
+	try { bootstrap = await loadBudget(Astro.request, config); }
+	catch (error) {
+		console.error("Budget server render failed", error);
+		Astro.response.status = 503;
+		failed = true;
+	}
+}
+---
+<Page>
+<div id="app-content">
+	{!config ? (
+		<main class="auth-card">
+			<h1>Set up Budget Together</h1>
+			<p>Set VITE_CONVEX_URL and VITE_CONVEX_SITE_URL in .env.local, then start the development server again.</p>
+		</main>
+	) : failed || !bootstrap ? (
+		<main class="auth-card">
+			<h1>We could not load this page</h1>
+			<p role="alert">Your budget is temporarily unavailable. Please try again.</p>
+			<a href={Astro.url.pathname + Astro.url.search}>Try again</a>
+		</main>
+	) : bootstrap.home ? (bootstrap.home.profile ? <BudgetApp page={bootstrap}/> : <Onboarding home={bootstrap.home}/>) : <Auth />}
+	<script type="application/json" id="page-state" set:html={JSON.stringify(bootstrap ? {convexUrl:bootstrap.convexUrl, authenticated:Boolean(bootstrap.home),spaceId:bootstrap.space?._id,active:bootstrap.space?.active,month:bootstrap.month,ensureMonth: Boolean(bootstrap.space?.active&&!bootstrap.dashboard?.plan),watches:bootstrap.watches} : null).replace(/</g,"\\u003c")}></script>
+</div>
+<script>
+	import "../scripts/app";
+</script>
+</Page>

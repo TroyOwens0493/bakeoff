@@ -1,0 +1,23 @@
+---
+import { nextMonth } from "../domain/budget";
+import { type PageData, usd } from "../lib/page-data";
+import Summary from "./Summary.astro";
+import AllocationRow from "./AllocationRow.astro";
+interface Props { page: PageData; }
+const {page}=Astro.props;
+const data=page.dashboard!;
+const space=page.space!;
+const available=Math.max(0,data.savings-(data.plan?.savingsTarget??0));
+const reserved=data.reserved.reduce((s,x)=>s+x.amount,0);
+---
+<Summary data={data}/>
+<form class="panel" data-op="budgets:review" data-transform="review" data-args={JSON.stringify({spaceId:space._id,month:page.month,revision:data.plan?.revision??0})} data-available={available} data-savings={data.savings} data-saved={String(Boolean(data.plan?.saved))}>
+	<div class="review-totals"><div><span>Available to allocate</span><strong>{usd(available)}</strong></div><div><span>Remaining</span><strong data-review-remaining>{usd(available-reserved)}</strong></div></div>
+	<fieldset disabled={!space.active}><div data-rows>{data.reserved.map(row=><AllocationRow categories={data.categories} month={nextMonth(page.month)} categoryId={row.categoryId} value={row.amount}/>)}</div>
+		<template data-row-template><AllocationRow categories={data.categories} month={nextMonth(page.month)}/></template><button type="button" class="secondary" data-add-row>Add allocation</button>
+		<div class="retained"><span>Keep in {page.month} savings<small>Unassigned savings remain here.</small></span><strong data-review-retained>{usd(data.savings-reserved)}</strong></div>
+		<dl><div><dt>Carry forward to {nextMonth(page.month)}</dt><dd data-review-reserved>{usd(reserved)}</dd></div><div><dt>Original monthly savings result</dt><dd>{usd(data.savings)}</dd></div></dl>
+		<p class="muted">Reserving funds does not change this month’s income, spending, savings, or target. Late bank corrections can require a new review.</p>{!data.plan?.saved&&<p>Save this month’s budget before completing its review.</p>}
+		<button type="submit" disabled={reserved>available||!data.plan?.saved}>{data.plan?.reviewed ? "Update monthly review" : "Complete monthly review"}</button><p data-message role="alert"></p>
+	</fieldset>
+</form>
