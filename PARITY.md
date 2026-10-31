@@ -53,6 +53,6 @@ Node and Netlify use official Astro adapters. The old TanStack, Nitro, React rou
 
 Run `pnpm test`, `pnpm typecheck`, `pnpm check`, and `pnpm test:ssr`. The SSR suite builds the Node server and uses a local fixture backend. A Netlify build can be checked with `NETLIFY=true SITE_URL=https://example.com pnpm build`.
 
-These checks establish the local implementation and API contracts. They do not establish delivery by a live email provider or connectivity to a live bank. No account data or secrets were copied from the source app. Live Convex authentication, Plaid Sandbox, Resend, and collaboration between two real users need a configured development deployment for final acceptance.
+These checks establish the local implementation and API contracts. They do not establish delivery by a live email provider or connectivity to a live bank. The hosted app uses the separate `troyteancum/bakeoff` Convex development deployment. No account or budget data was copied. Authentication and encryption keys are new; the existing Plaid Sandbox credentials were reused. Live email delivery and collaboration between two real users still need acceptance testing. Resend credentials are not configured.
 
 The baseline's product decisions still apply: no transaction exclusions, no activation step, shared budgets fund personal budgets, and no automatic rollover. The limitations in the README still apply.

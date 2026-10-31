@@ -57,7 +57,11 @@ pnpm start
 
 Netlify builds select the official Astro Netlify adapter when `NETLIFY=true`. The adapter creates the server function and static files. `netlify.toml` uses `pnpm build`, `dist`, and Node 24. Netlify supplies the deployment origin. Set `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` in the build and function environment. Plaid, Resend, and Better Auth secrets stay on Convex.
 
-This repository has not been connected to a new Netlify site. The Budget Together sandbox site belongs to the source project. This task did not change that site or deploy changes to its Convex backend.
+The live Astro app is https://bakeoff-troyowens.netlify.app. Netlify is linked to `TroyOwens0493/bakeoff` and builds the `SSR` branch on each push. Its dashboard is https://app.netlify.com/projects/bakeoff-troyowens.
+
+The app uses its own Convex development deployment, `notable-meadowlark-550`, in the `troyteancum/bakeoff` project. Its public endpoints are `https://notable-meadowlark-550.convex.cloud` and `https://notable-meadowlark-550.convex.site`. The database starts empty. Create a new account on this site.
+
+The backend has fresh Better Auth and bank-token encryption keys. Plaid Sandbox credentials are configured. Email delivery needs `RESEND_API_KEY` and `RESEND_FROM` on this deployment; those values were not configured in the source project. Password reset and invitation emails will not be delivered until they are set.
 
 ## Bank connectivity and email
 
@@ -126,7 +130,7 @@ Tests use Node's built-in test runner. Accounting tests cover cents, balance, re
 
 The original 40 domain and backend tests are retained. New tests check the form argument types, cents conversion, auth proxy, expired sessions, reporting time zones, and backend errors. The SSR suite starts the built Node server and a local fixture backend. It checks all views, editors, filtering, user isolation, escaped data, auth cookies, and 404 responses. These fixtures do not replace live Convex, Plaid, Resend, and two-user acceptance tests.
 
-No `.env.local` or credentials were copied from Budget Together. Configure a Convex development deployment before using real accounts. Use the baseline backend from this branch. Do not deploy this old backend over a newer shared deployment without checking compatibility.
+The live site has a separate Convex development deployment. The backend code was deployed from this branch. The original project's account and budget records were not copied. Each app has its own authentication and encryption keys. Bank connectivity uses Sandbox; this site is not configured for live bank imports.
 
 Persistent Plaid account identifiers prevent duplicate connections where Plaid provides them. When no persistent ID is available, a match on bank, account type, and last four digits pauses the new connection. The user must identify it as the same account (keep the existing import) or a different account (import it). This check includes the current partner's accounts without returning their private account details. Imports, webhooks, and scheduled sync cannot bypass a pending review.
 
