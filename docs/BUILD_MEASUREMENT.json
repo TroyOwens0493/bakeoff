@@ -1,0 +1,27 @@
+{
+  "measuredAt": "2026-10-31T20:55:15.979Z",
+  "architecture": "Astro static HTML with Convex browser data",
+  "node": "v26.8.2",
+  "platform": "linux-x64",
+  "commit": "32d1729706529bd9973a84a74669f626c53cedd1",
+  "workingTreeDirty": true,
+  "buildMs": 879,
+  "outputs": {
+    ".html": {
+      "files": 2,
+      "bytes": 29753,
+      "gzipBytes": 7009
+    },
+    ".css": {
+      "files": 1,
+      "bytes": 21350,
+      "gzipBytes": 5507
+    },
+    ".js": {
+      "files": 1,
+      "bytes": 125355,
+      "gzipBytes": 37986
+    }
+  },
+  "notes": "One local warm-build sample. Gzip sizes are per-file estimates, not observed network transfer. This is not a Lighthouse score or a controlled comparison with the first bakeoff."
+}
