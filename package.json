@@ -22,7 +22,7 @@
   "dependencies": {
     "@convex-dev/better-auth": "0.12.5",
     "@tailwindcss/vite": "^4.1.18",
-    "better-auth": "~1.6.33",
+    "better-auth": "~1.6.34",
     "convex": "^1.32.0",
     "tailwindcss": "^4.1.18",
     "astro": "7.4.4"
