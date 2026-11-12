@@ -9,13 +9,11 @@
 		"ignoreUnknown": false,
 		"includes": [
 			"**/src/**/*",
-			"**/.vscode/**/*",
 			"**/index.html",
 			"**/vite.config.ts",
-			"!**/src/routeTree.gen.ts",
-			"**/convex/**/*",
-			"!**/convex/_generated",
-			"**/tests/**/*"
+			"**/server/**/*",
+			"**/tests/**/*",
+			"!**/src/templates.html"
 		]
 	},
 	"formatter": {

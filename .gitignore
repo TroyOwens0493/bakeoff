@@ -12,3 +12,10 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+
+.astro/
+data/
+playwright-report/
+test-results/
+
+output/browser/

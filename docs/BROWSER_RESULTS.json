@@ -1,0 +1,60 @@
+{
+  "recordedAt": "2026-11-12T06:38:00.751Z",
+  "base": "http://localhost:43595",
+  "fixture": "isolated in-memory SQLite; simulated checking account and income; mocked Resend; no real providers",
+  "results": [
+    {
+      "name": "Registration, setup, and single login form",
+      "status": "passed"
+    },
+    {
+      "name": "Category creation and rename",
+      "status": "passed"
+    },
+    {
+      "name": "Transaction creation with two splits",
+      "status": "passed"
+    },
+    {
+      "name": "Transaction edit and search/account/category filters",
+      "status": "passed"
+    },
+    {
+      "name": "Category deletion reassigns existing split",
+      "status": "passed"
+    },
+    {
+      "name": "Transaction deletion",
+      "status": "passed"
+    },
+    {
+      "name": "Zero balance plan validation and save",
+      "status": "passed"
+    },
+    {
+      "name": "Completed monthly review and repeated carry-forward",
+      "status": "passed"
+    },
+    {
+      "name": "Shared budget, email invitation acceptance, and two-user private rejection",
+      "status": "passed"
+    },
+    {
+      "name": "Shared personal allocation save",
+      "status": "passed"
+    },
+    {
+      "name": "Shared updates and dirty form retention",
+      "status": "passed"
+    },
+    {
+      "name": "Profile/password changes and keyboard login persistence",
+      "status": "passed"
+    },
+    {
+      "name": "Mobile principal views have no overflow and readable screenshots",
+      "status": "passed"
+    }
+  ],
+  "pageErrors": []
+}

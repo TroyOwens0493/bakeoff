@@ -1,20 +1,73 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import nodeTest, { type TestContext } from "node:test";
+import schema from "../server/features/schema.ts";
+import { Store } from "../server/store.ts";
+
+let sqliteMode = false;
+function test(name: string, fn: (ctx: TestContext) => Promise<void>) {
+	nodeTest(`${name} (memory)`, async (ctx) => {
+		sqliteMode = false;
+		await fn(ctx);
+	});
+	nodeTest(`${name} (SQLite)`, async (ctx) => {
+		sqliteMode = true;
+		await fn(ctx);
+	});
+}
+class SqliteFixture extends Store {
+	current = "alice";
+	sequence = 0;
+	constructor() {
+		super(":memory:");
+	}
+	override async insert(table: string, value: Record<string, unknown>) {
+		++this.sequence;
+		const id = await super.insert(table, value);
+		this.sql
+			.prepare(`UPDATE ${this.table(table)} SET created=? WHERE id=?`)
+			.run(Date.now() - 100000 + this.sequence, id);
+		return id;
+	}
+	override async patch(id: string, value: Record<string, unknown>) {
+		const { _creationTime, ...fields } = value;
+		if (_creationTime !== undefined)
+			this.sql
+				.prepare(
+					`UPDATE ${this.table(id.split(":")[0])} SET created=? WHERE id=?`,
+				)
+				.run(Number(_creationTime), id);
+		if (Object.keys(fields).length) await super.patch(id, fields);
+	}
+	get rows() {
+		const map = new Map<string, Row>();
+		for (const table of Object.keys(
+			(schema as unknown as { tables: object }).tables,
+		))
+			for (const raw of this.sql
+				.prepare(`SELECT * FROM ${this.table(table)}`)
+				.all()) {
+				const row = this.decode(raw)!;
+				map.set(row._id, row);
+			}
+		return map;
+	}
+}
+
 import type {
 	FunctionArgs,
 	FunctionReference,
 	FunctionReturnType,
 	RegisteredMutation,
 	RegisteredQuery,
-} from "convex/server";
-import type { Id } from "../convex/_generated/dataModel";
-import * as accounts from "../convex/accounts.ts";
-import { authComponent } from "../convex/auth.ts";
-import * as bank from "../convex/bank.ts";
-import * as budgets from "../convex/budgets.ts";
-import * as contributions from "../convex/contributions.ts";
-import * as personalAllocations from "../convex/personalAllocations.ts";
-import * as sharing from "../convex/sharing.ts";
+} from "../server/contracts";
+import * as accounts from "../server/features/accounts.ts";
+import { authComponent } from "../server/features/auth.ts";
+import * as bank from "../server/features/bank.ts";
+import * as budgets from "../server/features/budgets.ts";
+import type { Id } from "../server/features/contracts/dataModel";
+import * as contributions from "../server/features/contributions.ts";
+import * as personalAllocations from "../server/features/personalAllocations.ts";
+import * as sharing from "../server/features/sharing.ts";
 
 type Reference<T> =
 	T extends RegisteredQuery<infer V, infer A, infer R>
@@ -121,6 +174,10 @@ class Memory {
 		return query;
 	}
 }
+function createDatabase(): Memory {
+	return sqliteMode ? (new SqliteFixture() as unknown as Memory) : new Memory();
+}
+
 let actor = "alice";
 Object.defineProperty(authComponent, "getAuthUser", {
 	value: async () => ({
@@ -135,9 +192,10 @@ async function invoke<T>(
 	args: FunctionArgs<Reference<T>>,
 ): Promise<FunctionReturnType<Reference<T>>> {
 	actor = db.current;
-	const backup = structuredClone(db.rows);
+	const backup = db instanceof Store ? null : structuredClone(db.rows);
+	if (db instanceof Store) db.sql.exec("BEGIN IMMEDIATE");
 	try {
-		return await (
+		const result = await (
 			fn as unknown as {
 				_handler: (
 					ctx: unknown,
@@ -145,8 +203,11 @@ async function invoke<T>(
 				) => Promise<FunctionReturnType<Reference<T>>>;
 			}
 		)._handler({ db, scheduler: { runAfter: async () => null } }, args);
+		if (db instanceof Store) db.sql.exec("COMMIT");
+		return result;
 	} catch (error) {
-		db.rows = backup;
+		if (db instanceof Store) db.sql.exec("ROLLBACK");
+		else db.rows = backup!;
 		throw error;
 	}
 }
@@ -190,7 +251,7 @@ async function connectedAccount(
 	);
 }
 async function fixture() {
-	const db = new Memory();
+	const db = createDatabase();
 	await invoke(budgets.setup, db, { name: "Alice", timeZone: "America/Boise" });
 	const privateId = id<"spaces">(
 		[...db.rows.values()].find((x) => x.type === "private")!._id,
@@ -674,7 +735,7 @@ test("sharing an account preserves private history and leaving limits future rea
 		destinationId: sharedId,
 		revision: 0,
 	});
-	assert.equal((await db.get(before))!.spaceId, privateId);
+	assert.equal((await db.get(before))?.spaceId, privateId);
 	const previous = await entry(db, sharedId, accountId, 200, "transfer");
 	await invoke(sharing.leave, db, { spaceId: sharedId });
 	const future = await entry(db, sharedId, accountId, 300, "transfer");
@@ -687,7 +748,7 @@ test("sharing an account preserves private history and leaving limits future rea
 		page.rows.map((x) => x._id),
 		[previous],
 	);
-	assert.equal((await db.get(accountId))!.spaceId, privateId);
+	assert.equal((await db.get(accountId))?.spaceId, privateId);
 	await assert.rejects(
 		() =>
 			invoke(budgets.saveCategory, db, {
@@ -812,8 +873,8 @@ test("category deletion reassigns transactions and preserves the sum of plan lim
 		spaceId: privateId,
 		month: "2026-09",
 	});
-	assert.equal(result.plan!.limits.length, 1);
-	assert.equal(result.plan!.limits[0].amount, 10000);
+	assert.equal(result.plan?.limits.length, 1);
+	assert.equal(result.plan?.limits[0].amount, 10000);
 	assert.equal(result.entries[0].splits[0].categoryId, replacementId);
 	assert.equal(result.spending, 1000);
 });
@@ -851,7 +912,7 @@ test("manual entry CRUD checks split totals and refuses deletion of imported ent
 		revision: 1,
 		note: "Changed",
 	});
-	assert.equal((await db.get(transaction))!.note, "Changed");
+	assert.equal((await db.get(transaction))?.note, "Changed");
 	await invoke(budgets.deleteTransaction, db, { id: transaction, revision: 2 });
 	assert.equal(await db.get(transaction), null);
 	const imported = await entry(
@@ -980,7 +1041,7 @@ test("partner duplicate checks do not expose private names and preserve other se
 	});
 	await db.insert("accounts", {
 		userId: "bob",
-		spaceId: "private-bob",
+		spaceId: "spaces:private-bob",
 		connectionId: partnerConnection,
 		name: "Secret account name",
 		type: "checking",
@@ -1123,7 +1184,7 @@ test("both partners can edit allocations without private access; outsiders and s
 		rows.find((x) => x.privateId === privateId),
 		{ privateId, name: "Alice", active: true, amount: 12300, revision: 1 },
 	);
-	assert.equal(rows.find((x) => x.privateId === bobId)!.amount, 0);
+	assert.equal(rows.find((x) => x.privateId === bobId)?.amount, 0);
 	await assert.rejects(
 		() =>
 			invoke(budgets.dashboard, db, { spaceId: privateId, month: "2026-09" }),
@@ -1246,8 +1307,8 @@ test("shared planned income and personal allocations balance; allocation changes
 			spaceId,
 			month: "2026-09",
 		});
-		assert.equal(data.plan!.saved, false);
-		assert.equal(data.plan!.revision, 2);
+		assert.equal(data.plan?.saved, false);
+		assert.equal(data.plan?.revision, 2);
 	}
 	await invoke(budgets.savePlan, db, {
 		...personalPlan,

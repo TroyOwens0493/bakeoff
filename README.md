@@ -1,57 +1,51 @@
-# Budget Together
+# Budget Together - Bakeoff Three
 
-A responsive US-dollar budgeting app for individuals and couples. Each user has a private budget and can share one budget with one partner. Monthly plans allocate expected income, personal funding, and explicit carry-forward to category limits and a savings target. The app does not move money.
+A client-rendered budgeting prototype for individuals and couples. Work is on `bakeoff-3`, created from `main` at `6ed8acf`. It keeps the product features of that baseline and uses a different backend and database. The earlier implementations remain in Git history on `main` and `SSR`.
 
-The project uses the existing React, TanStack Start, Tailwind CSS, Convex, Better Auth, Lucide, and Biome stack. The additional `@convex-dev/better-auth` component stores authentication in Convex. Plaid and Resend use their HTTP APIs without additional SDK packages.
+The browser uses vanilla TypeScript and native HTML templates. A Node.js HTTP server exposes a REST API. SQLite stores accounts, budgets, authentication, and background jobs. Vite builds the browser assets; the existing Tailwind build supplies styles. React, TanStack, Astro, Convex, and Better Auth are removed. No new runtime package was added.
 
-## Development
+## Run locally
 
-Use Node 24 or later and the pnpm version specified in package.json.
+Use Node 24 or later and pnpm 12.5.1. The development server uses port 3003 and stops if that port is in use.
 
 ```sh
 pnpm install
 cp .env.example .env.local
-pnpm exec convex dev
-```
-
-Sign in to the existing Convex **development** project. Keep `convex dev` running to generate types and sync backend changes. Set `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` in `.env.local` to the development deployment's `.cloud` and `.site` addresses. Do not use a production deployment for this branch.
-
-Set the variables described in `.env.example` on that Convex development deployment. `SITE_URL` is the app origin, usually `http://localhost:3000`. Generate a random Better Auth secret and a base64 key containing 32 random bytes for Plaid token encryption. Keep secrets in deployment environment variables. Browser variables start with `VITE_` and must not contain secrets.
-
-```sh
 pnpm dev
 ```
 
-Open http://localhost:3000. Local authentication also accepts http://127.0.0.1:3000 and http://[::1]:3000 on the same port. Create an account and private budget. Connect a bank, add a monthly plan, and optionally create a shared budget and invite a partner.
+Open http://localhost:3003. Register and create your private budget. This branch starts with a new SQLite database. It does not copy users, sessions, budgets, or bank connections from the earlier deployments.
 
-`pnpm dev` stops with an error if port `3000` is already in use. It does not switch to a different port. If the app is already running, use that server.
+The Node server reads `.env.local` directly. Set `SITE_URL` to the exact browser origin, and `PORT` to its local port. Loopback aliases on the same port are accepted. `AUTH_TRUSTED_ORIGINS` can add explicit origins for a tunnel. Secrets stay on the server; there are no `VITE_` secrets or browser backend tokens.
 
-If your SSH tunnel or a second development server uses a different browser address or port, set `AUTH_TRUSTED_ORIGINS` on the same Convex development deployment. This is a comma-separated list of extra addresses. For example, to accept http://localhost:3001 as well as http://localhost:3000:
+For a production build:
 
 ```sh
-pnpm exec convex env set AUTH_TRUSTED_ORIGINS 'http://localhost:3001'
-pnpm exec convex dev --once
+pnpm build
+pnpm start
 ```
 
-Use the address shown in the browser, including its protocol and port. Each configured loopback address also accepts `localhost`, `127.0.0.1`, and `[::1]` with the same protocol and port. Other addresses must be listed explicitly. Hosted deployments accept only `SITE_URL` and any explicitly configured extra origins. Put this setting on Convex; `.env.local` alone does not configure backend authentication.
+The same Node server serves `dist` and the API. Deploy as one Node process with a persistent writable disk for `DATABASE_PATH`. Use HTTPS and set `SITE_URL` to that HTTPS origin. A static-only Netlify deployment cannot run this backend. This branch does not change either earlier hosted site. Back up the SQLite database, its WAL during a live backup, and the bank encryption key together. Stop the process before copying the database, or use SQLite's backup tooling.
 
-## Netlify sandbox deployment
+## Features
 
-The sandbox app is hosted at https://budget-together-sandbox.netlify.app. Netlify builds and deploys the app when changes are pushed to `main` in `TroyOwens0493/budgetTogether` on GitHub. Development work stays on `dev` and is merged into `main` for deployment.
+- Registration, login, logout, profile updates, password changes, and single-use password resets.
+- Private budgets and shared budgets with at most two active members, accepted email invitations, equal partner control, departure cutoffs, and private account history.
+- Category CRUD with reassignment on deletion; monthly zero-balance plans, repeated limits, shared-to-personal funding, and legacy contribution records.
+- Manual transaction CRUD, search, account/category filters, pagination, notes, recategorization, splits, refunds, and reconciliation with bank imports.
+- Plaid Sandbox bank linking, duplicate-account review, encrypted tokens, cursor-based imports, pending replacement, signed bank events, retry, reconnect, and disconnect with history retention.
+- Dashboard balances, category alerts with per-user read state, recurring-charge suggestions, spending charts, historical reports, and explicit monthly carry-forward.
+- Responsive labeled controls, client navigation, loading/retry states, stale-edit rejection, and protection for unsaved forms.
 
-`netlify.toml` sets the build command to `pnpm build`, the publish directory to `dist`, Node to version 24, and `NITRO_PRESET` to `netlify`. Nitro builds the server function for page rendering and `/api/auth/*`. Deploy the server function with the static files.
+Shared changes appear through authenticated query polling every two seconds. Polling compares query results and refreshes clean views. A dirty form retains its values and revision and offers **Load current values**.
 
-Netlify uses `VITE_CONVEX_URL` and `VITE_CONVEX_SITE_URL` from `.env.local` for both builds and server functions. Plaid secrets stay on the existing Convex development deployment. The Plaid client uses Sandbox.
+## Bank and email setup
 
-On Convex, `SITE_URL` is the Netlify app address. `AUTH_TRUSTED_ORIGINS` also accepts the local development addresses on ports 3000 and 3001. Keep these addresses when you change the hosted address.
+Set `PLAID_CLIENT_ID`, `PLAID_SECRET`, and `PLAID_TOKEN_ENCRYPTION_KEY` in `.env.local` or the Node process environment. The key must decode to 32 bytes. Use Sandbox credentials. Bank calls use Plaid's HTTP API without an SDK. Configure an approved `PLAID_REDIRECT_URI` if the selected bank needs OAuth. The public bank event address is `${SITE_URL}/bank-events`; a local-only address cannot receive provider callbacks. Manual sync still works locally.
 
-## Bank connectivity and email
+Set `RESEND_API_KEY` and a verified `RESEND_FROM` sender for invitations and password resets. Missing email configuration does not prevent registration or login. Invitation delivery failures appear in account settings. Password reset requests always show the same public response to avoid disclosing accounts. Check the server log for delivery failures. Tests use simulated provider responses and do not prove delivery through a live bank or email account.
 
-This branch uses **Plaid Sandbox only**. It loads Plaid Link from Plaid's hosted script, exchanges public tokens on the backend, encrypts access tokens with AES-GCM, and imports Transactions through the cursor-based sync API. Only checking, savings, and credit card accounts are supported. Sandbox test credentials are documented at https://plaid.com/docs/sandbox/test-credentials/.
-
-The bank event endpoint is `https://<development-deployment>.convex.site/bank-events`. Requests require Plaid's ES256 signature, a recent timestamp, and a matching SHA-256 request-body hash. Bank events trigger imports. A six-hour scheduled job retries active connections. Sync errors retain imported history, show the last successful import, and provide reconnect controls. Disconnecting removes the Plaid Item and retains app history.
-
-Resend sends partner invitations and password reset emails. Configure a verified sender domain and `RESEND_FROM`. Invitation delivery status appears in account settings; a failed invitation can be revoked and replaced. Invitations expire after seven days, require the recipient's email address, and become membership only after acceptance. Reset links use Better Auth's expiration and single-use token handling.
+The background worker checks persisted jobs each second and schedules bank refreshes at startup and every six hours. Jobs survive process restarts. Failed jobs retry up to five times with a one-minute delay; their last error stays in SQLite. Imports also retain a visible connection status. Run one server process for this prototype; a distributed job lease is outside scope.
 
 ## Agreed product choices
 
@@ -63,58 +57,44 @@ Resend sends partner invitations and password reset emails. Configure a verified
 - **Draft and activation steps were removed at the user's request**, overriding those steps in the PDF. Users finish a monthly budget and choose **Save budget**. Every save requires a zero balance. A personal allocation change requires both affected budgets to be balanced and saved again.
 - New months start with prior limits for the user to check and save. Monthly review explicitly adds carry-forward to next month's categories or savings target. Repeated reviews replace existing reservations and adjust the destination budget by the difference, including an already saved budget; they do not change historical savings results. Existing records with the former draft/active field stay readable and move to the new saved field when updated.
 
-## API and modules
 
-The PDF's API paths describe conceptual operations. This implementation uses authenticated Convex queries, mutations, and actions. The browser subscribes to queries for shared updates without a page refresh.
+## Code and API
 
-`convex/budgets.ts` defines the budget API arguments and connects each operation to a plain TypeScript function in `convex/model/`. These model functions contain access checks, validation, and database operations. They use the caller's Convex context, so each mutation remains one database transaction.
-
-| Budget model | Responsibility |
+| Module | Responsibility |
 | --- | --- |
-| `spaces.ts` | Profile setup, private-budget creation, and the user's budget list |
-| `categories.ts` | Category lists, edits, and deletion with reassignment |
-| `accounting.ts` | Planned and actual funding, carry-forward funding, and monthly results |
-| `plans.ts` | Monthly plan saves, repetition, initial creation, and reviews |
-| `transactions.ts` | Transaction search, edits, deletion, splits, and reconciliation |
-| `reporting.ts` | Dashboard data and historical reports |
-| `insights.ts` | Recurring-charge suggestions, alerts, and per-user alert read state |
+| `src/scripts/app.ts` | Browser navigation, forms, live refresh, and bank-link controls |
+| `src/lib/render.ts`, `templates.ts`, `src/templates.html` | Native templates and safe DOM binding; record text is never executable HTML |
+| `src/shared/routes.ts` | Public REST route contract shared by browser and server |
+| `server/index.ts` | HTTP routing, request limits, origin checks, API responses, and asset serving |
+| `server/auth.ts` | Scrypt passwords, hashed cookie sessions, resets, and rate limits |
+| `server/runtime.ts` | Validated operation dispatch, serialized transactions, and persisted jobs |
+| `server/store.ts`, `features/schema.ts` | SQLite tables, JSON records, indexes, and storage validation |
+| `server/features/model/` | Reusable access, accounting, plan, category, transaction, report, and insight rules |
+| `server/features/` | Account moves, sharing, partner funding, bank imports, and email |
+| `src/domain/budget.ts` | Pure integer-cent calculations used by browser and server |
 
-The model modules do not register Convex API functions. `src/domain/budget.ts` contains the budget calculations that the browser and server share. Add reusable budget operations to the model modules and keep the API definitions small.
+See `src/shared/routes.ts` for all public methods and paths. GET routes accept named query parameters. Other routes accept a JSON body. For example, `GET /api/dashboard?spaceId=spaces:...&month=2026-11` reads a budget; `PUT /api/monthly-plan` saves a balanced plan. Auth routes are `/api/auth/register`, `/login`, `/logout`, `/session`, `/update-user`, `/change-password`, `/request-password-reset`, and `/reset-password` under the same prefix. All private routes use the same-origin session cookie. Internal import and delivery operations have no public route.
 
-| Module | Operations |
-| --- | --- |
-| `auth` and `/api/auth/*` | Registration, sign-in/out, password reset, profile and password changes through Better Auth |
-| `budgets` | Setup, dashboard, category CRUD and reassignment, budget save/repeat, transaction search/pagination/CRUD/splits, reconciliation, monthly review, reports, recurring suggestions, alerts |
-| `accounts` | Authorized account lists, names, assignment moves, connection status |
-| `sharing` | Shared-budget creation, email invitations, acceptance, revocation, leave |
-| `personalAllocations` | Shared-to-personal monthly funding amounts; both partners can edit |
-| `contributions` | Legacy funding and bank matches for historical months |
-| `bank` | Link/update sessions, public-token exchange, sync, disconnect, internal imports |
-| `/bank-events` | Verified Plaid bank events |
+Every write validates its arguments and checks budget access in the domain module. Each mutation runs in a SQLite transaction; failed mutations roll back. Revisions reject stale writes. Queries also run through the serialized database boundary. Provider actions run outside database transactions and call small transactional operations for state changes. SQLite records use schema-validated JSON with indexed fields. This preserves the existing model boundaries without a new ORM.
 
-All money is stored as integer cents. Imported amounts use positive values for purchases/outflows and negative values for income/refunds. Refunds reduce spending. Pending entries are shown separately; posted entries replace pending ones without double counting. Transfers and credit card payments are omitted from income and spending. Splits must equal the transaction amount and use categories in the same budget.
-
-Private access is checked in backend requests as well as UI controls. Mutations use revision numbers to reject outdated edits. The UI reports the conflict; reopening the editor loads current values. Categories can be deleted only with a replacement category. Bank entries retain bank-controlled amounts/dates; only manual entries can be deleted.
-
-## Validation
+## Verify and evaluate
 
 ```sh
 pnpm test
 pnpm typecheck
 pnpm check
-pnpm build
+pnpm test:production
+pnpm measure
 ```
 
-Tests use Node's built-in test runner. Accounting tests cover cents, balance, refunds, transfers, pending entries, splits, carry-forward, and recurring estimates. Backend tests exercise the actual query/mutation handlers against an in-memory database with stubbed authentication. They check direct private access, stale edits, repeated reviews, account moves, departure cutoffs, contribution matches, and import idempotency. They do not replace live Convex, Plaid, or Resend integration tests.
+For browser tests, use `pnpm test:browser` with an existing Playwright installation. The complete command is in [docs/BROWSER_VERIFICATION.md](docs/BROWSER_VERIFICATION.md). The test runner owns a separate server and database and uses simulated provider data. Playwright is test tooling supplied by the host, not an added app dependency.
 
-## Current verification limits
+The backend regression suite runs the same assertions with an in-memory fixture and real SQLite. REST tests cover authentication, validation, access rejection, password changes, invitation acceptance, password reset, and stored data. Provider tests simulate Plaid and Resend, including signed events, import idempotency, retained history after sync failure, and import jobs after reopening the database.
 
-The backend has been deployed to the configured Convex development deployment, and its API declarations have been regenerated. Budget edits have been tested in the authenticated UI, including repeated saves and persistence after a page reload. Keep `pnpm exec convex dev` running with `pnpm dev` so backend requests stay in sync with the UI. To sync the backend once, run `pnpm exec convex dev --once`. Registration, reset emails, partner emails, Plaid Link/imports, and two-browser collaboration still need live integration testing.
+Course documents are in `docs/`: the implementation plan, requirement checklist, parity map, evaluation preparation, verification record, and build measurements. The student will add a separate manually implemented feature after this migration, write the reflection, and submit the evaluation form.
 
-Persistent Plaid account identifiers prevent duplicate connections where Plaid provides them. When no persistent ID is available, a match on bank, account type, and last four digits pauses the new connection. The user must identify it as the same account (keep the existing import) or a different account (import it). This check includes the current partner's accounts without returning their private account details. Imports, webhooks, and scheduled sync cannot bypass a pending review.
+## Prototype limits
 
-Transaction pages return a bounded page, but their backend filtering currently reads the selected month's records. Very large monthly histories and initial Plaid import batches will need bounded server queries and chunked sync staging before production use. Recurring suggestions estimate monthly charges from three similar posted entries; estimates are not bill reminders. This branch is not configured for Plaid Production.
+Bank and email integrations require server credentials and provider configuration. No production bank rollout is included. Transactions are paginated in the UI, but backend filtering still reads the selected month's records. Initial imports accumulate a provider batch before applying it. Large histories need bounded queries and chunked imports. Synchronous SQLite and serialized access suit this single-process prototype; they are not a load-tested production design. Sessions expire after seven days; reset links expire after one hour. Expired session/reset rows are rejected on use but are not yet pruned on a schedule.
 
-## Project workflow
-
-Work is on the `dev` branch. Team membership and project tracking are not yet configured in this repo. Add confirmed team members, sprint goals, and retrospective notes when the team and tracking tool are chosen. Future work includes live acceptance testing, production bank rollout, and larger-history query/import scaling. Investment tracking, payments, groups larger than two, non-US banks, other currencies, reminders, offline support, and subscription billing remain outside scope.
+Investment tracking, payments, groups larger than two, non-US banks, other currencies, reminders, offline use, and subscription billing remain outside scope.

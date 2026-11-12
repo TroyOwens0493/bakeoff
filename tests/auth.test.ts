@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { trustedAuthOrigins } from "../convex/authOrigins";
+import { trustedAuthOrigins } from "../server/features/authOrigins";
 
 test("local auth accepts all loopback addresses on the configured port", () => {
 	assert.deepEqual(trustedAuthOrigins("http://localhost:3000"), [

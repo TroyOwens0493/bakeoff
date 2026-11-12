@@ -1,4 +1,4 @@
-import type { Id } from "../../convex/_generated/dataModel";
+import type { Id } from "../../server/features/contracts/dataModel";
 
 export type Run = (
 	work: () => Promise<unknown>,

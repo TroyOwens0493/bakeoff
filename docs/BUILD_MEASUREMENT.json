@@ -1,0 +1,28 @@
+{
+  "recordedAt": "2026-11-12T06:39:34.882Z",
+  "node": "v26.13.0",
+  "architecture": "client-rendered vanilla TypeScript + Node REST + SQLite",
+  "buildMilliseconds": 239,
+  "files": [
+    {
+      "path": "dist/assets/index-C1YgR5i7.js",
+      "bytes": 63189,
+      "gzipBytes": 17565
+    },
+    {
+      "path": "dist/assets/index-DWuxBI__.css",
+      "bytes": 21833,
+      "gzipBytes": 5495
+    },
+    {
+      "path": "dist/index.html",
+      "bytes": 419,
+      "gzipBytes": 291
+    }
+  ],
+  "notes": [
+    "One local production build, not a benchmark distribution.",
+    "Gzip sizes are computed per file; HTTP compression depends on the host.",
+    "Provider IO, database scaling, and network latency are not measured."
+  ]
+}
